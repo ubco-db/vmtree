@@ -3,7 +3,7 @@
 @file		dbbuffer.h
 @author		Ramon Lawrence
 @brief		Light-weight buffer implementation for small embedded devices.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,	
 			Ramon Lawrence	
 @par Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "bitarr.h"
 #include "storage.h"
 
 /* Define type for page ids (physical and logical). */
@@ -53,6 +54,11 @@ typedef struct {
 	count_t	pageSize;				/* Size of buffer page */
 	count_t	numPages;				/* Number of buffer pages */    
 	storageState* storage;			/* Storage information for reading/writing pages */
+	count_t eraseSizeInPages;		/* Erase size in pages */
+	id_t 	endDataPage;			/* End data page number */		
+	id_t 	erasedEndPage;			/* Physical page number of last page erased */	
+	id_t	erasedStartPage;		/* Physical page number of first page in next erased block */	
+	int8_t 	wrappedMemory;			/* 1 if have wrapped around in memory, 0 otherwise */
 	id_t 	nextPageId;				/* Next logical page id. Page id is an incrementing value and may not always be same as physical page id. */
 	id_t 	nextPageWriteId;		/* Physical page id of next page to write. */	
 	id_t 	numWrites;				/* Number of page writes */
@@ -65,6 +71,7 @@ typedef struct {
 	void	*state;					/* Tree state */
 	int8_t (*isValid)(void *state, id_t pageNum, id_t *parentId, void **parentBuffer);	/* Function to determine if page is valid */
 	void 	(*movePage)(void *state, id_t prev, id_t curr, void* buf);					/* Function called when buffer moves a page location */
+	bitarr freePages;				/* Bit vector to determine free pages in memory */
 } dbbuffer;
 
 /**
@@ -149,10 +156,58 @@ void closeBuffer(dbbuffer *state);
 void printStats(dbbuffer *state);
 
 /**
+@brief      Erases physical pages start to end inclusive. Assumes that start and end are aligned according to erase block.
+@param     	state
+               	DBbuffer state structure
+@param     	startPage
+                Physical index of start page
+@param     	endPage
+				Physical index of start page
+@return		Return 0 if success, -1 if failure.
+*/
+int8_t erasePages(dbbuffer *state, id_t startPage, id_t endPage);
+
+/**
 @brief     	Clears statistics.
 @param     	state
                 DBbuffer state structure
 */
 void dbbufferClearStats(dbbuffer *state);
+
+/**
+@brief     	Set page as free.
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+void dbbufferSetFree(dbbuffer *state, id_t pageNum);
+
+/**
+@brief     	Set page as valid (used).
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+void dbbufferSetValid(dbbuffer *state, id_t pageNum);
+
+/**
+@brief     	Returns 1 if page is free (can be used), 0 otherwise.
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+int8_t dbbufferIsFree(dbbuffer *state, id_t pageNum);
+
+/**
+@brief     	Returns 1 if have freed sufficient space up to requested number of pages, 0 otherwise.
+@param     	state
+                DBbuffer state structure
+@param     	pages
+				Number of free pages required				
+*/
+int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages);
 
 #endif

@@ -122,7 +122,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     printf("\nSTARTING VMTREE INDEX TESTS.\n");
 
     uint32_t stepSize = 100, numSteps = 10;
-    count_t r, numRuns = 1, l;
+    count_t r, numRuns = 3, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -144,25 +144,26 @@ void runalltests_vmtree(memory_t* storageInfo)
         rnd.size = 10000;
         stepSize = rnd.size / numSteps;
         uint32_t n = rnd.size; 
-        rnd.prime = 0;
-    
-        /* Configure file storage */     
+        rnd.prime = 0;        
+
+        /* Configure file storage */             
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
+        storage->storage.size = 25000;
         if (fileStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
             return;
-        }                
-        
+        }                        
        
         /* Configure dataflash memory storage */     
-        /*     
+        /*
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
         storage->size = 512 * 6700; // 6700 pages of 512 bytes each (configure based on memory) 
+        storage->storage.size = storage->size;
         storage->pageOffset = 0;              
         if (dfStorageInit((storageState*) storage) != 0)
         {
@@ -188,6 +189,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         }
         buffer->pageSize = 512;
         buffer->numPages = M;
+        buffer->eraseSizeInPages = 4;
         buffer->status = (id_t*) malloc(sizeof(id_t)*M);
         if (buffer->status == NULL)
         {   printf("Failed to allocate buffer status array.\n");
@@ -199,14 +201,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         {   printf("Failed to allocate buffer.\n");
             return;
         }
-        buffer->storage = (storageState*) storage;  
-
-        /* Address level parameters */
-        /*
-        buffer->startAddress = 0;
-        buffer->endAddress = buffer->pageSize * 4800000;	
-        buffer->eraseSizeInPages = 4;
-        */
+        buffer->storage = (storageState*) storage;         
 
         /* Configure btree state */
         vmtreeState* state = (vmtreeState*) malloc(sizeof(vmtreeState));
@@ -234,6 +229,10 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->state = state;
         buffer->isValid = vmtreeIsValid;
         buffer->movePage = vmtreeMovePage;
+
+        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
+        // state->parameters = 0;
+        state->parameters = OVERWRITE;
 
         /* Initialize VMTree structure with parameters */
         vmtreeInit(state);
@@ -264,7 +263,7 @@ void runalltests_vmtree(memory_t* storageInfo)
                 printf("INSERT ERROR: %lu\n", v);
                 return;
             }
-                          
+           
             if (i % stepSize == 0)
             {           
                 printf("Num: %lu KEY: %lu\n", i, v);
@@ -299,7 +298,10 @@ void runalltests_vmtree(memory_t* storageInfo)
         printf("Mapping comparisons: %lu\n", state->numMappingCompare);
 
         /* Re-write tree to remove all mappings */
-        vmtreeClearMappings(state, state->activePath[0]);
+        // printf("Before clear mappings\n");
+        /* OPTIONAL: Re-write tree to remove all mappings */
+        // vmtreeClearMappings(state, state->activePath[0]);
+        // printf("After clear mappings\n");
 
         state->numMappingCompare = 0;
         dbbufferClearStats(state->buffer);

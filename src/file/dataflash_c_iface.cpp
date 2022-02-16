@@ -76,7 +76,7 @@ int32_t dfread(int32_t pagenum, void *ptr, int32_t size)
 }
 
 /**
-@brief		Write data page to data flash.
+@brief		Write data page to data flash. 
 @param		pagenum
 				Page number
 @param		ptr
@@ -89,7 +89,7 @@ int32_t dfwrite(int32_t pagenum, void *ptr, int32_t size)
 {	
 	//printf("Write page: %d\n", pagenum);
 	df_buffer_1_write(dflash, 0, (uint8_t*) ptr, size);		
-	df_buffer_1_to_MM_erase(dflash, pagenum);
+	// df_buffer_1_to_MM_erase(dflash, pagenum);
 	
 	while (DATAFLASH_BUSY == get_ready_status(dflash))
 	{
@@ -97,4 +97,24 @@ int32_t dfwrite(int32_t pagenum, void *ptr, int32_t size)
 	return size;	
 }
 
-
+/**
+@brief		Write data page to data flash with an erase-before write.
+@param		pagenum
+				Page number
+@param		ptr
+				A pointer to the memory containing data to be written
+@param		size
+				The number of bytes to be write			
+@returns	The number of bytes written
+*/
+int32_t dfwriteErase(int32_t pagenum, void *ptr, int32_t size)
+{	
+	//printf("Write page: %d\n", pagenum);
+	df_buffer_1_write(dflash, 0, (uint8_t*) ptr, size);		
+	df_buffer_1_to_MM_erase(dflash, pagenum);
+	
+	while (DATAFLASH_BUSY == get_ready_status(dflash))
+	{
+	};
+	return size;	
+}

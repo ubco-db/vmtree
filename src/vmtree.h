@@ -3,7 +3,7 @@
 @file		vmtree.h
 @author		Ramon Lawrence
 @brief		Implementation for virtual mapping, copy-on-write B-tree.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,		
 @par Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -71,13 +71,24 @@ typedef uint16_t count_t;
 #define VMTREE_IS_INTERIOR(x)  	(*((count_t *) (x+VMTREE_COUNT_OFFSET)) >= 10000 ? 1 : 0)
 #define VMTREE_IS_ROOT(x)  		(*((count_t *) (x+VMTREE_COUNT_OFFSET)) >= 20000 ? 1 : 0)
 #define VMTREE_SET_INTERIOR(x) 	VMTREE_SET_COUNT(x,*((count_t *) (x+VMTREE_COUNT_OFFSET))+10000)
+#define VMTREE_SET_NOR_INTERIOR(x) 	VMTREE_SET_COUNT(x, 10000)
+#define VMTREE_SET_ROOT_NOR(x) 	VMTREE_SET_COUNT(x, 20000)
 #define VMTREE_SET_ROOT(x) 		VMTREE_SET_COUNT(x,*((count_t *) (x+VMTREE_COUNT_OFFSET))+20000)
+#define VMTREE_SET_LEAF(x)  	*((count_t *) (x+VMTREE_COUNT_OFFSET)) = 0
 
 #define MAX_LEVEL 8
 
 #define PREV_ID_CONSTANT		10000000
 
 #define EMPTY_MAPPING			200000000
+
+/* OVERWRITE is full overwrite with no byte restrictions. i.e. SD card file */
+/* OVERWRITE will use same sorted page structure */
+#define OVERWRITE				1
+
+/* NOR_OVERWRITE is for NOR memory that supports overwriting a page but only converting 1s to 0s. */
+/* NOR_OVERWRITE has different page structure to avoid changing bytes already written. Records not in sorted order. */
+#define NOR_OVERWRITE			2
 
 typedef struct {
 	id_t prevPage;								/* Previous page index */
@@ -90,6 +101,9 @@ typedef struct {
 	uint8_t dataSize;							/* Size of data in bytes (fixed-size records) */
 	uint8_t recordSize;							/* Size of record in bytes (fixed-size records) */
 	uint8_t headerSize;							/* Size of header in bytes (calculated during init()) */
+	uint8_t interiorHeaderSize;					/* Size of header in bytes (calculated during init()) for interior nodes */
+	uint8_t bitmapSize;							/* Size of each bitmap vector in bytes (calculated during init()) */
+	uint8_t interiorBitmapSize;					/* Size of each bitmap vector in bytes (calculated during init()) for interior nodes */
 	id_t 	nextPageId;							/* Next logical page id. Page id is an incrementing value and may not always be same as physical page id. */
 	count_t maxRecordsPerPage;					/* Maximum records per page */
 	count_t maxInteriorRecordsPerPage;			/* Maximum interior records per page */
@@ -315,6 +329,16 @@ void vmtreeClearMappings(vmtreeState *state, int pageNum);
 @return    	previous id stored/used in page
 */
 id_t vmtreeUpdatePrev(vmtreeState *state, void *buf, id_t currId);
+
+/**
+@brief     	Sets the first count bits to be occupied with valid records. Resets all other bits.			
+@param     	state
+                VMTree algorithm state structure
+@param     	buf
+                buffer containing block to sort
+@return		Return count of valid records in block.
+*/
+void vmtreeSetCountBitsInterior(vmtreeState* state, void *buf, int16_t count);
 
 #if defined(__cplusplus)
 }

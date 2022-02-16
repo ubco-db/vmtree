@@ -108,7 +108,8 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 		return -1;		/* Invalid page requested */
 
 	printf("Write: %lu\n", pageNum+mem->pageOffset);
-	dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
+	// dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
+	dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);
 	return 0;   
 }
 

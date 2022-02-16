@@ -3,7 +3,7 @@
 @file		dbbuffer.c
 @author		Ramon Lawrence
 @brief		Light-weight buffer implementation for small embedded devices.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -59,6 +59,17 @@ void dbbufferInit(dbbuffer *state)
 	state->bufferHits = 0;
 	state->lastHit = 0;
 	state->nextBufferPage = 1;
+	state->endDataPage = state->storage->size;	
+
+	/* Set free space flags */
+	state->freePages = malloc(sizeof(uint8_t)*(state->storage->size/8+1));
+	for (id_t l=0; l < state->storage->size; l++)		
+		dbbufferSetFree(state, l);	
+
+	/* Erase first two blocks. */
+	erasePages(state, 0, state->eraseSizeInPages*2-1);	
+	state->erasedStartPage = 0;
+	state->erasedEndPage = state->eraseSizeInPages*2-1;
 
 	for (count_t l=0; l < state->numPages; l++)
 		state->status[l] = 0;	
@@ -153,6 +164,7 @@ void* readPage(dbbuffer *state, id_t pageNum)
 		}
 		else if (state->numPages == 3)
 		{
+			buf = state->buffer + state->pageSize*2;
 			i = 2;
 		}
 		else
@@ -219,6 +231,205 @@ void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum)
 
 
 /**
+@brief      Erases physical pages start to end inclusive. Assumes that start and end are aligned according to erase block.
+@param     	state
+               	DBbuffer state structure
+@param     	startPage
+                Physical index of start page
+@param     	endPage
+				Physical index of end page
+@return		Return 0 if success, -1 if failure.
+*/
+int8_t erasePages(dbbuffer *state, id_t startPage, id_t endPage)
+{
+	// printf("Erasing pages. Start: %d  End: %d\n", startPage, endPage);
+	/* TODO: Not doing anything for file. */
+	for (id_t l=startPage; l <= endPage; l++)
+		dbbufferSetFree(state, l);
+
+	return 0;
+}
+
+/**
+@brief     	Returns next valid physical page to write.
+@param     	state
+                DBbuffer state structure		
+*/
+id_t dbbufferNextValidPage(dbbuffer *state)
+{
+	/* TODO: Use bit vector instead of looking up mapping again */
+	state->nextPageWriteId++;
+	while (1)
+	{
+		if (state->nextPageWriteId > state->endDataPage)		
+			state->nextPageWriteId = 0;			
+		
+		if (dbbufferIsFree(state, state->nextPageWriteId))
+		{
+			/* Check for mapping. TODO: Should be merged into one step. */
+			id_t mapId = vmtreeGetMapping(state->state, state->nextPageWriteId);
+			if (mapId == state->nextPageWriteId)
+				return state->nextPageWriteId;
+			else
+			{
+				// printf("Page: %lu is not free. Has Mapping: %lu Skipping to next page.\n", state->nextPageWriteId, mapId);
+			}	
+		}
+		state->nextPageWriteId++;
+	}	
+}
+
+/**
+@brief      Writes page to storage. Returns physical page id if success. -1 if failure.
+			This version does not check for wrap around.
+@param     	state
+               	DBbuffer state structure
+@param     	buffer
+                In memory buffer containing page
+@param		pageNum
+				Location to write at
+@return		
+*/
+int32_t writePageDirect(dbbuffer *state, void* buffer, int32_t pageNum)
+{
+	/* Setup page number in header */	
+	memcpy(buffer, &(state->nextPageId), sizeof(id_t));
+	state->nextPageId++;
+
+	/* Save page in storage */
+	state->storage->writePage(state->storage, pageNum, state->pageSize, buffer);
+	
+	state->numWrites++;
+	dbbufferSetValid(state, pageNum);
+	return pageNum;	
+}
+
+/**
+@brief     	Returns 1 if have freed sufficient space up to requested number of pages, 0 otherwise.
+			Guarantees that at least that many pages are currently available for writing.
+@param     	state
+                DBbuffer state structure
+@param     	pages
+				Number of free pages required				
+*/
+int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
+{
+	id_t startErase, endErase;
+	id_t parentId = 0;		/* TODO: Not currently used */
+	void *parentBuffer;		/* TODO: Not currently used */
+	int32_t pageIdToMove[8];		/* TODO: Should be size of erase size */			
+	uint8_t numMove;
+	id_t pageNum;
+	id_t totalPagesLookedAt = 0;
+
+	/* Count how many pages free there are from current write location up to end erase point */
+	count_t num=0;
+	count_t numCheck;
+	id_t page;
+	if (state->erasedEndPage >= state->nextPageWriteId)
+		numCheck = state->erasedEndPage - state->nextPageWriteId;
+	else
+		numCheck = state->endDataPage-state->nextPageWriteId + state->erasedEndPage;
+
+	if (numCheck >= 0) // pages)
+	{	/* Check that the pages in the range are actually valid */
+		page = state->nextPageWriteId;
+		for (id_t j=0; j <= numCheck; j++)
+		{	if (page > state->endDataPage)
+				page = 0;
+			// int8_t response = state->isValid(state->state, page, &parentId, &parentBuffer);
+			if (dbbufferIsFree(state, page))
+			// if (response == -1)
+				num++;
+			if (num >= pages)
+				return 1;
+			page++;
+		}
+	}
+
+	/* Do not have enough free pages. Erase next block */	
+
+
+finderase:
+	numMove = 0;
+	startErase = state->erasedEndPage+1;	
+	state->erasedStartPage = startErase;
+	endErase = startErase + state->eraseSizeInPages - 1;	
+	if (endErase > state->endDataPage)
+	{	/* Wrap around in memory */
+		startErase = 0;
+		endErase = state->eraseSizeInPages-1;
+	}	
+
+	for (id_t i=startErase; i <= endErase; i++)
+	{
+		int8_t response = state->isValid(state->state, i, &parentId, &parentBuffer);
+		// printf("Status page: %d  Status: %d\n", i, response);
+		if (response == -1)
+			continue;
+
+		if (response == 1)
+		{	/* Mapping but no valid node. Must update parent but not the node itself. */
+			/* Active mapping will be detected when try to write page. Page will be skipped. */					
+			pageIdToMove[numMove] = -1;										
+		}
+		else
+		{	/* Valid node at this location. Must rewrite node and its parent. */
+			pageIdToMove[numMove] = i;
+		}
+							
+		numMove++;
+	}
+
+	// if (numMove >= state->eraseSizeInPages/2)			
+	if (numMove >= state->eraseSizeInPages/2)			
+	{
+		// printf("Skipping pages and leaving as is. Start: %d End: %d\n", startErase, endErase);				
+		state->erasedEndPage = endErase;
+		totalPagesLookedAt += state->eraseSizeInPages;
+		// printf("Total pages looked: %lu\n", totalPagesLookedAt);
+		if (totalPagesLookedAt >= state->endDataPage - pages)
+			return 0;
+		goto finderase;
+		/* TODO: How to skip over full blocks */
+	}
+
+	for (id_t i=0; i < numMove; i++)
+	{			
+		if (pageIdToMove[i] != -1)
+		{	/* Must move page */
+			// printf("Moving page: %d\n", pageIdToMove[i]);
+		
+			/* Read page */
+			void *buf = readPage(state, pageIdToMove[i]);
+			if (buf != NULL)
+			{
+				id_t savedNextWrite = state->nextPageWriteId+1;				
+				pageNum = dbbufferNextValidPage(state);																
+				if ( (savedNextWrite < startErase && pageNum >= startErase) 
+					 || (savedNextWrite > startErase && pageNum < savedNextWrite && pageNum >= startErase) )
+				{	/* Passed the boundary of erase pages. Stop for now. TODO: Make this better? */
+					printf("Exhausted pages in erased buffer.\n");
+					return 0;
+				}
+				/* Update page */
+				state->movePage(state->state, pageIdToMove[i], pageNum, buf);
+
+				/* Write page */
+				writePageDirect(state, buf, pageNum);				
+			}
+		}
+	}
+
+	erasePages(state, startErase, endErase);	
+
+	state->erasedEndPage = endErase;
+	
+	/* Verify have enough space */
+	return dbbufferEnsureSpace(state, pages);
+}
+
+/**
 @brief      Writes page to storage. Returns physical page id if success. -1 if failure.
 @param     	state
                	DBbuffer state structure
@@ -229,17 +440,13 @@ void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum)
 int32_t writePage(dbbuffer *state, void* buffer)
 {    	
 	/* Always writes to next page number. Returned to user. */	
-	int32_t pageNum = state->nextPageWriteId++;	
+	int32_t pageNum = dbbufferNextValidPage(state);
 
 	/* Setup page number in header */	
 	memcpy(buffer, &(state->nextPageId), sizeof(id_t));
 	state->nextPageId++;
 	
-	/* Save page in storage */
-	state->storage->writePage(state->storage, pageNum, state->pageSize, buffer);
-	
-	state->numWrites++;
-	return pageNum;
+	return writePageDirect(state, buffer, pageNum);		
 }
 
 /**
@@ -286,14 +493,16 @@ int32_t overWritePage(dbbuffer *state, void* buffer, int32_t pageNum)
 */
 void* initBufferPage(dbbuffer *state, int pageNum)
 {	
-	/* Insure all values are 0 in page. */
-	/* TODO: May want to initialize to all 1s for certian memory types. */	
+	/* Insure all values are 1 in page. */
+	/* TODO: May want to initialize to all 1s for certain memory types. */
+	/* NOR_OVERWRITE requires everything initialized to 1. */	
 	void *buf = state->buffer + pageNum * state->pageSize;
 	for (uint16_t i = 0; i < state->pageSize/sizeof(int32_t); i++)
     {
-        ((int32_t*) buf)[i] = 0;
+        ((int32_t*) buf)[i] = INT32_MAX;
     }
-	return buf;		
+	
+	return buf;			
 }
 
 /**
@@ -333,4 +542,45 @@ void dbbufferClearStats(dbbuffer *state)
 	state->numWrites = 0;
 	state->bufferHits = 0;
 	state->numOverWrites = 0;	
+}
+
+/**
+@brief     	Set page as free.
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+void dbbufferSetFree(dbbuffer *state, id_t pageNum)
+{	
+	bitarrSet(state->freePages, pageNum, 1);
+	//state->freePages[pageNum] = 1;
+	// printf("Freed page: %d\n", pageNum);
+}
+
+/**
+@brief     	Set page as valid (used).
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+void dbbufferSetValid(dbbuffer *state, id_t pageNum)
+{
+	bitarrSet(state->freePages, pageNum, 0);
+	// state->freePages[pageNum] = 0;
+	// printf("Valid page: %d\n", pageNum);
+}
+
+/**
+@brief     	Returns 1 if page is free (can be used), 0 otherwise.
+@param     	state
+                DBbuffer state structure
+@param     	pageNum
+				Physical index of page				
+*/
+int8_t dbbufferIsFree(dbbuffer *state, id_t pageNum)
+{
+	// return state->freePages[pageNum];
+	return bitarrGet(state->freePages, pageNum);
 }

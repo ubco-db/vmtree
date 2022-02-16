@@ -1,11 +1,10 @@
 /******************************************************************************/
 /**
-@file		storage.h
+@file		bitarr.h
 @author		Ramon Lawrence
-@brief		Generic storage interface for reading and writing pages of data.
-@copyright	Copyright 2021
-			The University of British Columbia,
-			Ramon Lawrence		
+@brief		Bit vector implementation
+@copyright	Copyright 2022
+			The University of British Columbia,		
 @par Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 
@@ -33,28 +32,22 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 /******************************************************************************/
-#ifndef STORAGE_H
-#define STORAGE_H
+
+#ifndef BITARR_H
+#define BITARR_H
 
 #include <stdint.h>
 
-/* Define type for page ids (physical and logical). */
-typedef uint32_t id_t;
+#define BV_UNIT_SIZE    8
 
-/* Define type for page record count. */
-typedef uint16_t count_t;
+typedef unsigned char* bitarr;
 
-struct storageState;
-typedef struct storageState storageState;
+void bitarrInit(bitarr* vector, uint32_t size, uint8_t value);
 
-struct storageState 
-{
-	int32_t	size;																					/* Size in pages */
-	int8_t	(*init)(storageState *storage);															/* Initializes storage */
-	int8_t 	(*readPage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Read a page from storage */
-	int8_t 	(*writePage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Write a page to storage */	
-	void	(*flush)(storageState *storage);														/* Flush storage (ensure all updates are written) */
-	void	(*close)(storageState *storage);														/* Close storage */
-};
+void bitarrSet(bitarr vector, uint32_t pos, uint8_t value);
+
+uint8_t bitarrGet(bitarr vector, uint32_t pos);
+
+void bitarrPrint(bitarr vector, uint32_t size);
 
 #endif

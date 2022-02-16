@@ -1,11 +1,10 @@
 /******************************************************************************/
 /**
-@file		storage.h
+@file		bitarr.c
 @author		Ramon Lawrence
-@brief		Generic storage interface for reading and writing pages of data.
-@copyright	Copyright 2021
-			The University of British Columbia,
-			Ramon Lawrence		
+@brief		Bit vector implementation
+@copyright	Copyright 2022
+			The University of British Columbia,		
 @par Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 
@@ -33,28 +32,40 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 /******************************************************************************/
-#ifndef STORAGE_H
-#define STORAGE_H
 
-#include <stdint.h>
+#include "bitarr.h"
 
-/* Define type for page ids (physical and logical). */
-typedef uint32_t id_t;
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-/* Define type for page record count. */
-typedef uint16_t count_t;
-
-struct storageState;
-typedef struct storageState storageState;
-
-struct storageState 
+void bitarrInit(bitarr* vector, uint32_t size, uint8_t value)
 {
-	int32_t	size;																					/* Size in pages */
-	int8_t	(*init)(storageState *storage);															/* Initializes storage */
-	int8_t 	(*readPage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Read a page from storage */
-	int8_t 	(*writePage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Write a page to storage */	
-	void	(*flush)(storageState *storage);														/* Flush storage (ensure all updates are written) */
-	void	(*close)(storageState *storage);														/* Close storage */
-};
+	uint32_t count = ceil(size / BV_UNIT_SIZE);
 
-#endif
+	*vector = (bitarr) malloc(BV_UNIT_SIZE * count);
+	if (value > 0)
+		value = 255;
+	for (uint32_t i = 0; i < size; i++)
+		(*vector)[i] = value;
+}
+
+void bitarrSet(bitarr vector, uint32_t pos, uint8_t value)
+{	
+	if (value) 
+		vector[pos / BV_UNIT_SIZE] |= (1 << (pos % BV_UNIT_SIZE));
+   	else 
+      	vector[pos / BV_UNIT_SIZE] &= ~(1 << (pos % BV_UNIT_SIZE));   
+}
+
+uint8_t bitarrGet(bitarr vector, uint32_t pos)
+{
+	return (vector[pos / BV_UNIT_SIZE] & (1 << (pos % BV_UNIT_SIZE))) > 0 ? 1 : 0;
+}
+
+void bitarrPrint(bitarr vector, uint32_t size)
+{
+	for (int i=0; i < size; i++)
+		printf("%d ", bitarrGet(vector, i));
+	printf("\n");
+}

@@ -3,7 +3,7 @@
 @file		dataflash_c_iface.h
 @author		Ramon Lawrence
 @brief		This code contains C wrapper for data flash library.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			IonDB Project Contributors (see AUTHORS.md)
 @par Redistribution and use in source and binary forms, with or without
@@ -75,6 +75,18 @@ int32_t dfread(int32_t pagenum, void *ptr, int32_t size);
 @returns	The number of bytes written
 */
 int32_t dfwrite(int32_t pagenum, void *ptr, int32_t size);
+
+/**
+@brief		Write data page to data flash with an erase-before write.
+@param		pagenum
+				Page number
+@param		ptr
+				A pointer to the memory containing data to be written
+@param		size
+				The number of bytes to be write			
+@returns	The number of bytes written
+*/
+int32_t dfwriteErase(int32_t pagenum, void *ptr, int32_t size);
 
 #if defined(__cplusplus)
 }

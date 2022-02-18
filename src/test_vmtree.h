@@ -93,13 +93,15 @@ int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int
     size_t errors = 0;
     randomseqState rnd;
     rnd.size = maxvals;
+    rnd.prime = 0;
     srand(r);
     randomseqInit(&rnd);
         
     for (int32_t i = 0; i < numvals; i++) 
     {         
-        int32_t key = randomseqNext(&rnd);
+        int32_t key = randomseqNext(&rnd);         
         int8_t result = vmtreeGet(state, &key, recordBuffer);
+        
         if (result != 0) 
         {   errors++;
             printf("ERROR: Failed to find: %d\n", key);
@@ -108,6 +110,7 @@ int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int
         else if (*((int32_t*) recordBuffer) != key)
         {   printf("ERROR: Wrong data for: %d\n", key);
             printf("Key: %d Data: %d\n", key, *((int32_t*) recordBuffer));
+            errors++;
         }
     }
     
@@ -122,7 +125,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     printf("\nSTARTING VMTREE INDEX TESTS.\n");
 
     uint32_t stepSize = 100, numSteps = 10;
-    count_t r, numRuns = 3, l;
+    count_t r, numRuns = 1, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -141,7 +144,7 @@ void runalltests_vmtree(memory_t* storageInfo)
 
         srand(r);
         randomseqState rnd;
-        rnd.size = 10000;
+        rnd.size = 1000;
         stepSize = rnd.size / numSteps;
         uint32_t n = rnd.size; 
         rnd.prime = 0;        
@@ -230,9 +233,16 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->isValid = vmtreeIsValid;
         buffer->movePage = vmtreeMovePage;
 
-        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
+        state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
         // state->parameters = 0;
-        state->parameters = OVERWRITE;
+        // state->parameters = OVERWRITE;
+
+        if (state->parameters == 0)
+            printf("VMTREE with no overwrite.\n");
+        else if (state->parameters == OVERWRITE)
+            printf("VMTREE with overwrite.\n");
+        else if (state->parameters == NOR_OVERWRITE)
+            printf("VMTREE with NOR overwrite.\n");
 
         /* Initialize VMTree structure with parameters */
         vmtreeInit(state);
@@ -255,7 +265,7 @@ void runalltests_vmtree(memory_t* storageInfo)
 
             *((int32_t*) recordBuffer) = v;
             *((int32_t*) (recordBuffer+4)) = v;             
-            // printf("Num: %lu KEY: %lu\n", i, v);
+            printf("Num: %lu KEY: %lu\n", i, v);
 
             if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + 4)) == -1)
             {                  
@@ -263,7 +273,16 @@ void runalltests_vmtree(memory_t* storageInfo)
                 printf("INSERT ERROR: %lu\n", v);
                 return;
             }
-           
+             
+            int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+            if (errors > 0)
+            {
+                printf("ERRORS: %d Num: %d\n", errors, i);
+                vmtreePrint(state);   
+                vmtreePrintMappings(state);
+                return;
+            }
+             
             if (i % stepSize == 0)
             {           
                 printf("Num: %lu KEY: %lu\n", i, v);

@@ -3,7 +3,7 @@
 @file		dataflash_c_iface.cpp
 @author		Ramon Lawrence
 @brief		This code contains C wrapper for data flash library.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			IonDB Project Contributors (see AUTHORS.md)
 @par Redistribution and use in source and binary forms, with or without

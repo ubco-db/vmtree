@@ -125,7 +125,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     printf("\nSTARTING VMTREE INDEX TESTS.\n");
 
     uint32_t stepSize = 100, numSteps = 10;
-    count_t r, numRuns = 1, l;
+    count_t r, numRuns = 3, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -144,7 +144,7 @@ void runalltests_vmtree(memory_t* storageInfo)
 
         srand(r);
         randomseqState rnd;
-        rnd.size = 1000;
+        rnd.size = 10000;
         stepSize = rnd.size / numSteps;
         uint32_t n = rnd.size; 
         rnd.prime = 0;        
@@ -227,7 +227,7 @@ void runalltests_vmtree(memory_t* storageInfo)
             return;
         }
 
-        /* Connections betwen buffer and VMTree */
+        /* Connections between buffer and VMTree */
         buffer->activePath = state->activePath;
         buffer->state = state;
         buffer->isValid = vmtreeIsValid;
@@ -265,7 +265,13 @@ void runalltests_vmtree(memory_t* storageInfo)
 
             *((int32_t*) recordBuffer) = v;
             *((int32_t*) (recordBuffer+4)) = v;             
-            printf("Num: %lu KEY: %lu\n", i, v);
+            // printf("Num: %lu KEY: %lu\n", i, v);
+
+            if (i >= 652)
+            {
+       //         vmtreePrint(state);   
+       //         vmtreePrintMappings(state);
+            }
 
             if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + 4)) == -1)
             {                  
@@ -274,7 +280,9 @@ void runalltests_vmtree(memory_t* storageInfo)
                 return;
             }
              
-            int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+            int32_t errors = 0;
+          //  if (i >= 1000)
+          //      errors = checkValues(state, recordBuffer, rnd.size, i, r);
             if (errors > 0)
             {
                 printf("ERRORS: %d Num: %d\n", errors, i);

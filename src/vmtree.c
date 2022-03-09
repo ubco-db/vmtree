@@ -135,6 +135,7 @@ void vmtreeInit(vmtreeState *state)
 	state->numNodes = 1;
 	state->numMappingCompare = 0;
 	state->maxTries = 1;	
+	state->savedMappingPrev = EMPTY_MAPPING;
 
 	/* Calculate maximum number of mappings */
 	state->maxMappings = state->mappingBufferSize / (2*sizeof(id_t));		/* TODO: May want to add overhead to this calculation */
@@ -391,11 +392,11 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 
 			/* Print data records (optional) */			
 			for (int c=0; c < count; c++)
-			{
+			{				
 				memcpy(&key, (int32_t*) (buffer + state->headerSize + state->recordSize * c), sizeof(int32_t));
 				memcpy(&val, (int32_t*) (buffer + state->headerSize + state->recordSize * c + state->keySize), sizeof(int32_t));
 				printSpaces(depth*3+2);
-				printf("Key: %lu Value: %lu\n",key, val);					
+				printf("Key: %lu Value: %lu\n",key, val);									
 			}				
 		}
 	}
@@ -462,15 +463,17 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 			printSpaces(depth*3);
 			printf("Id: %d Loc: %d Prev: %d Cnt: %d (%d, %d)\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, minKey, maxKey);	
 
-			/* Print all individual records */
+			/* Print all individual records (optional) */
 			for (c=0; c < state->bitmapSize*8 && c < state->maxRecordsPerPage; c++)
 			{	/* Must be non-free location (0) and still valid (1) */
 				if (bitarrGet(bm1, c) == 0 && bitarrGet(bm2, c) == 1)
-				{	/* Found valid record. */					
+				{	/* Found valid record. */	
+					/*				
 					memcpy(&key, (int32_t*) (buffer + state->headerSize + state->keySize * c), sizeof(int32_t));
 					memcpy(&val, (int32_t*) (buffer + state->headerSize + state->maxRecordsPerPage*state->keySize + c * state->dataSize), sizeof(int32_t));
 					printSpaces(depth*3+2);
-					printf("Key: %lu Value: %lu\n",key, val);											
+					printf("Key: %lu Value: %lu\n",key, val);	
+					*/										
 				}
 			}			
 		}
@@ -596,15 +599,16 @@ void vmtreePrintMappings(vmtreeState *state)
 */
 count_t vmtreeUpdatePointers(vmtreeState *state, void *buf, count_t start, count_t end)
 {	
-	// vmtreePrintMappings(state);
+	vmtreePrintMappings(state);
 
 	/* Update any stale pointers and remove mappings */
 	id_t childIdx, newIdx;
 	int num = 0;
-	void *ptrOffset = buf + state->headerSize + state->keySize * state->maxInteriorRecordsPerPage; 
+	void *ptrOffset = buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage; 
 	for (count_t i=start; i <= end; i++)
 	{		
 		memcpy(&childIdx,((id_t*) (ptrOffset + sizeof(id_t) * (i))), sizeof(id_t));
+		printf("Child idx: %lu  Saved: %lu\n", childIdx, state->savedMappingPrev);
 		if (childIdx == state->savedMappingPrev)
 			newIdx = state->savedMappingCurr;
 		else
@@ -872,7 +876,7 @@ int8_t vmtreeInsertInterior(vmtreeState* state, void *buf, void* key, id_t left,
 	unsigned char* bm1 = buf + state->interiorHeaderSize - state->interiorBitmapSize*2;
 	unsigned char* bm2 = buf + state->interiorHeaderSize - state->interiorBitmapSize;			
 	int16_t c;
-
+	
 	/* Determine key just larger than this one. */
 	uint16_t firstloc, loc = 0;
 	uint8_t success = 0;
@@ -1134,7 +1138,7 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 	/* Starting at root search for key */
 	int8_t 	l;
 	void 	*buf, *ptr;	
-	id_t  	prevId, parent, nextId = state->activePath[0];	
+	id_t  	parent, nextId = state->activePath[0];	
 	int32_t pageNum, childNum;
 
 	for (l=0; l < state->levels-1; l++)
@@ -1162,7 +1166,7 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 
 	/* Append key/data record to first open space in node */
 	unsigned char* bm = buf + state->headerSize - state->bitmapSize * 2;		
-	// bitarrPrint(bm, state->maxRecordsPerPage);
+	
 	for (int i=0; i < state->bitmapSize*8 && i < state->maxRecordsPerPage; i++)
 	{	/* Free location if bit in count bitmap is 1 */
 		if (bitarrGet(bm, i) == 1)
@@ -1281,16 +1285,16 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 			pageNum = overWritePage(state->buffer, buf, parent);
 			return 0;		
 		}
-		
+	
 		/* No space. Split interior node and promote key/pointer pair */
 		// printf("Splitting interior node.\n");
 		state->numNodes++;
+		// vmtreePrintNodeBuffer(state, parent, 0, buf);
 
 		/* After split, reset previous node index to unassigned. */
 		VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);
 
-		count = vmtreeSortInteriorBlockNorOverwrite(state, buf)-1;
-		// vmtreePrintNodeBuffer(state, right, 0, buf);
+		count = vmtreeSortInteriorBlockNorOverwrite(state, buf)-1;	
 
 		/* TODO: Optimization is to check if have at least two open spaces now that have cleaned up node. If so, then write new node. No need to split further. */
 		mid = count/2;
@@ -1307,9 +1311,9 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 		if (compareKeyMid < 0)
 		{	/* Insert key/pointer in page with smaller values */		
 			/* Update count on page then write */			
-			vmtreeSetCountBitsInterior(state, buf, mid+2);								
-			vmtreeUpdatePointers(state, buf, 0, count);
-	
+			vmtreeSetCountBitsInterior(state, buf, mid+2);							
+			// vmtreeUpdatePointers(state, buf, 0, count);
+				
 			/* Buffer key/pointer record at mid point so do not lose it */
 			/* TODO: Using tempData here as already using tempKey. This would be a problem if data size is < key size. */
 			memcpy(state->tempData, buf + state->interiorHeaderSize + state->keySize * (mid), state->keySize);
@@ -1320,26 +1324,22 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 			id_t tempPtr;
 			memcpy(&tempPtr, buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage + sizeof(id_t) * (mid+1), sizeof(id_t));
 			
-			// int16_t cnt = mid+2;							
-			// vmtreeSetCountBitsInterior(state, buf, cnt);	
-			// vmtreePrintNodeBuffer(state, right, 0, buf);	
 			vmtreeInsertInteriorNew(state, buf, mid+1, state->tempKey, left, right);	
 		
 			left = writePage(state->buffer, buf);				
-			// vmtreePrintNodeBuffer(state, right, 0, buf);
+			// vmtreePrintNodeBuffer(state, left, 0, buf);
 
 			vmtreeSetCountBitsInterior(state, buf, count-mid); // +1?
-			// vmtreeSetCountBitsInterior(state, buf, 10);
-			// vmtreePrintNodeBuffer(state, right, 0, buf);						
+					
 			/* Copy buffered pointer to start of block */			
 			ptr = buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;
 			memcpy(ptr, &tempPtr, sizeof(id_t));
 			memcpy(buf + state->interiorHeaderSize, &tempKeyAfterMid, state->keySize);
 
-			/* Copy records after mid to start of page */	
-			memcpy(buf + state->interiorHeaderSize + state->keySize, buf + state->interiorHeaderSize + state->keySize * (mid+2), state->keySize*(count-mid-1));					
-			memcpy(ptr + sizeof(id_t), ptr + sizeof(id_t) * (mid+2), sizeof(id_t)*(count-mid-1));	 // -1 is new				
-							
+			/* Copy records after mid to start of page */					
+			memcpy(buf + state->interiorHeaderSize + state->keySize, buf + state->interiorHeaderSize + state->keySize * (mid+2), state->keySize*(count-mid-1));									
+			memmove(ptr + sizeof(id_t), ptr + sizeof(id_t) * (mid+2), sizeof(id_t)*(count-mid-1));	 // -1 is new				
+								
 			// vmtreeUpdatePointers(state, buf, 0, count-mid-1);
 			right = writePage(state->buffer, buf);			
 			// vmtreePrintNodeBuffer(state, right, 0, buf);
@@ -1353,7 +1353,7 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 			// if (count % 2 == 0)
 			// 	mid++;
 			vmtreeSetCountBitsInterior(state, buf, mid+1);						
-			vmtreeUpdatePointers(state, buf, 0, count);						
+			// vmtreeUpdatePointers(state, buf, 0, count);						
 
 			ptr = buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;
 	//		if (compareKeyMid2 < 0)

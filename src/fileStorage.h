@@ -96,6 +96,18 @@ int8_t fileStorageWritePage(storageState *storage, id_t pageNum, count_t pageSiz
 
 
 /**
+@brief      Erases physical pages start to end inclusive. Assumes that start and end are aligned according to erase block.
+@param     	state
+               	DBbuffer state structure
+@param     	startPage
+                Physical index of start page
+@param     	endPage
+				Physical index of start page
+@return		Return 0 if success, -1 if failure.
+*/
+int8_t fileStorageErasePages(storageState *storage, id_t startPage, id_t endPage);
+
+/**
 @brief     	Flush storage and ensure all data is written.
 @param     	state
                 File storage state structure

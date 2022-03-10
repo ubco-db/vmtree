@@ -118,3 +118,16 @@ int32_t dfwriteErase(int32_t pagenum, void *ptr, int32_t size)
 	};
 	return size;	
 }
+
+/**
+@brief		Erases data page.
+@param		pagenum
+				Page number
+*/
+void dfErase(int32_t pagenum)
+{
+	df_page_erase(dflash, pagenum);
+	while (DATAFLASH_BUSY == get_ready_status(dflash))
+	{
+	};
+}

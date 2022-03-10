@@ -144,12 +144,13 @@ void runalltests_vmtree(memory_t* storageInfo)
 
         srand(r);
         randomseqState rnd;
-        rnd.size = 10000;
+        rnd.size = 1000;
         stepSize = rnd.size / numSteps;
         uint32_t n = rnd.size; 
         rnd.prime = 0;        
 
-        /* Configure file storage */             
+        /* Configure file storage */      
+        /*       
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
@@ -159,21 +160,21 @@ void runalltests_vmtree(memory_t* storageInfo)
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-       
+        */
         /* Configure dataflash memory storage */     
-        /*
+        
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
         storage->size = 512 * 6700; // 6700 pages of 512 bytes each (configure based on memory) 
-        storage->storage.size = storage->size;
+        storage->storage.size = 6700;
         storage->pageOffset = 0;              
         if (dfStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        */
+        
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        
@@ -265,7 +266,7 @@ void runalltests_vmtree(memory_t* storageInfo)
 
             *((int32_t*) recordBuffer) = v;
             *((int32_t*) (recordBuffer+4)) = v;             
-            // printf("Num: %lu KEY: %lu\n", i, v);
+            printf("Num: %lu KEY: %lu\n", i, v);
 
             if (i >= 652)
             {

@@ -107,12 +107,32 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 	if ( pageNum < 0 || (pageNum+1)*pageSize > mem->size)
 		return -1;		/* Invalid page requested */
 
-	printf("Write: %lu\n", pageNum+mem->pageOffset);
-	// dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
-	dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);
+	// printf("Write: %lu\n", pageNum+mem->pageOffset);
+	dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
+	// dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);
 	return 0;   
 }
 
+/**
+@brief      Erases physical pages start to end inclusive. Assumes that start and end are aligned according to erase block.
+@param     	state
+               	DBbuffer state structure
+@param     	startPage
+                Physical index of start page
+@param     	endPage
+				Physical index of start page
+@return		Return 0 if success, -1 if failure.
+*/
+int8_t dfStorageErasePages(storageState *storage, id_t startPage, id_t endPage)
+{
+	/* Erase pages. TODO: Can we erase as a block instead of individual pages? */
+	for (id_t i=startPage; i <= endPage; i++)
+	{
+		printf("ERASE PARGE: %lu\n", i);
+		dfErase(i);		
+	}
+	return 0;
+}
 
 /**
 @brief     	Flush storage and ensure all data is written.

@@ -88,6 +88,13 @@ int32_t dfwrite(int32_t pagenum, void *ptr, int32_t size);
 */
 int32_t dfwriteErase(int32_t pagenum, void *ptr, int32_t size);
 
+/**
+@brief		Erases data page.
+@param		pagenum
+				Page number
+*/
+void dfErase(int32_t pagenum);
+
 #if defined(__cplusplus)
 }
 #endif

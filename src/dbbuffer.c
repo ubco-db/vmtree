@@ -67,7 +67,7 @@ void dbbufferInit(dbbuffer *state)
 		dbbufferSetFree(state, l);	
 
 	/* Erase first two blocks. */
-	erasePages(state, 0, state->eraseSizeInPages*2-1);	
+	erasePages(state, 0, state->eraseSizeInPages*2-1);		
 	state->erasedStartPage = 0;
 	state->erasedEndPage = state->eraseSizeInPages*2-1;
 
@@ -242,8 +242,10 @@ void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum)
 */
 int8_t erasePages(dbbuffer *state, id_t startPage, id_t endPage)
 {
-	// printf("Erasing pages. Start: %d  End: %d\n", startPage, endPage);
-	/* TODO: Not doing anything for file. */
+	printf("Erasing pages. Start: %d  End: %d\n", startPage, endPage);
+	
+	state->storage->erasePages(state->storage, startPage, endPage);
+
 	for (id_t l=startPage; l <= endPage; l++)
 		dbbufferSetFree(state, l);
 

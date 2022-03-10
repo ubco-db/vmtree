@@ -53,6 +53,7 @@ struct storageState
 	int8_t	(*init)(storageState *storage);															/* Initializes storage */
 	int8_t 	(*readPage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Read a page from storage */
 	int8_t 	(*writePage)(storageState *storage, id_t pageNum, count_t pageSize, void *buffer);		/* Write a page to storage */	
+	int8_t  (*erasePages)(storageState *storage, id_t startPage, id_t endPage);						/* Erases a sequence of pages from start to end (inclusive) */
 	void	(*flush)(storageState *storage);														/* Flush storage (ensure all updates are written) */
 	void	(*close)(storageState *storage);														/* Close storage */
 };

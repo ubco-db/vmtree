@@ -599,7 +599,7 @@ void vmtreePrintMappings(vmtreeState *state)
 */
 count_t vmtreeUpdatePointers(vmtreeState *state, void *buf, count_t start, count_t end)
 {	
-	vmtreePrintMappings(state);
+	// vmtreePrintMappings(state);
 
 	/* Update any stale pointers and remove mappings */
 	id_t childIdx, newIdx;
@@ -608,7 +608,7 @@ count_t vmtreeUpdatePointers(vmtreeState *state, void *buf, count_t start, count
 	for (count_t i=start; i <= end; i++)
 	{		
 		memcpy(&childIdx,((id_t*) (ptrOffset + sizeof(id_t) * (i))), sizeof(id_t));
-		printf("Child idx: %lu  Saved: %lu\n", childIdx, state->savedMappingPrev);
+		
 		if (childIdx == state->savedMappingPrev)
 			newIdx = state->savedMappingCurr;
 		else
@@ -2319,7 +2319,7 @@ int8_t vmtreeIsValid(void *statePtr, id_t pageNum, id_t *parentId, void **parent
 */
 void vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf)
 {
-	vmtreePrintNodeBuffer(state, prev, 0, buf);
+	// vmtreePrintNodeBuffer(state, prev, 0, buf);
 	/* Update the mapping. */
 	if (VMTREE_IS_INTERIOR(buf))
 	{
@@ -2339,7 +2339,8 @@ void vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf)
 		if (vmtreeAddMapping(state, prev, curr) == -1)
 		{
 			printf("ERROR: Ran out of mapping space.\n");
+			vmtreePrintMappings(state);
 		}
 	}
-	vmtreePrintMappings(state);
+	// vmtreePrintMappings(state);
 }

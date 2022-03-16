@@ -363,6 +363,8 @@ finderase:
 		endErase = state->eraseSizeInPages-1;
 	}	
 
+	int8_t erasePossible = 1;
+
 	for (id_t i=startErase; i <= endErase; i++)
 	{
 		int8_t response = state->isValid(state->state, i, &parentId, &parentBuffer);
@@ -378,13 +380,20 @@ finderase:
 		else
 		{	/* Valid node at this location. Must rewrite node and its parent. */
 			pageIdToMove[numMove] = i;
+
+			/* Verify there is mapping space to save this mapping. Otherwise, move is not possible. */
+			erasePossible = state->checkMapping(state->state, i);
+			if (!erasePossible)
+			{	printf("Skipping as no space for saving mapping: %lu\n", i);
+				break;
+			}
 		}
 							
 		numMove++;
 	}
 
 	// if (numMove >= state->eraseSizeInPages/2)			
-	if (numMove >= state->eraseSizeInPages/2)			
+	if (numMove >= state->eraseSizeInPages/2 || !erasePossible)			
 	{
 		// printf("Skipping pages and leaving as is. Start: %d End: %d\n", startErase, endErase);				
 		state->erasedEndPage = endErase;
@@ -415,10 +424,17 @@ finderase:
 					return 0;
 				}
 				/* Update page */
-				state->movePage(state->state, pageIdToMove[i], pageNum, buf);
+				int8_t result = state->movePage(state->state, pageIdToMove[i], pageNum, buf);
 
-				/* Write page */
-				writePageDirect(state, buf, pageNum);				
+				if (!result)
+				{
+					/* Write page */
+					writePageDirect(state, buf, pageNum);				
+				}
+				else
+				{
+					printf("Move page unsuccessful: %lu\n", pageIdToMove[i]);
+				}
 			}
 		}
 	}
@@ -503,7 +519,7 @@ void* initBufferPage(dbbuffer *state, int pageNum)
     {
         ((int32_t*) buf)[i] = INT32_MAX;
     }
-	
+	state->status[pageNum] = 0;		/* Indicate buffer is unassigned to any current page */
 	return buf;			
 }
 

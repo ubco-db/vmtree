@@ -289,7 +289,7 @@ int8_t vmtreeIsValid(void *statePtr, id_t pageNum, id_t *parentId, void **parent
 @param		buf
 				Buffer containing the page
 */
-void vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf);
+int8_t vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf);
 
 /**
 @brief     	Gets a page mapping or returns current page number if no mapping.
@@ -299,6 +299,15 @@ void vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf);
 				physical page index
 */
 id_t vmtreeGetMapping(vmtreeState *state, id_t pageId);
+
+/**
+@brief     	Returns 1 if there is space to add mapping with given pageId, 0 otherwise.
+@param     	state
+                VMTree algorithm state structure
+@param		pageId
+				physical page index
+*/
+int8_t vmtreeCheckMappingSpace(void *state, id_t pageId);
 
 /**
 @brief     	Deletes a page mapping.

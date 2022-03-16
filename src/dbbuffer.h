@@ -70,7 +70,8 @@ typedef struct {
 	id_t* 	activePath;				/* Active path on insert. Also contains root. Helps to prioritize. */
 	void	*state;					/* Tree state */
 	int8_t (*isValid)(void *state, id_t pageNum, id_t *parentId, void **parentBuffer);	/* Function to determine if page is valid */
-	void 	(*movePage)(void *state, id_t prev, id_t curr, void* buf);					/* Function called when buffer moves a page location */
+	int8_t (*checkMapping)(void *state, id_t pageNum);									/* Function to determine if have space to add mapping with given pageNum */
+	int8_t 	(*movePage)(void *state, id_t prev, id_t curr, void* buf);					/* Function called when buffer moves a page location */
 	bitarr freePages;				/* Bit vector to determine free pages in memory */
 } dbbuffer;
 

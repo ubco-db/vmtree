@@ -57,6 +57,7 @@ int8_t dfStorageInit(storageState *storage)
 	mem->storage.close = dfStorageClose;
 	mem->storage.readPage = dfStorageReadPage;
 	mem->storage.writePage = dfStorageWritePage;
+	mem->storage.erasePages = dfStorageErasePages;
 	mem->storage.flush = dfStorageFlush;
 
 	return 0;
@@ -107,6 +108,7 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 	if ( pageNum < 0 || (pageNum+1)*pageSize > mem->size)
 		return -1;		/* Invalid page requested */
 
+	// TODO: Use dfwrite if doing NOR_OVERWRITE. dfwriteErase for all other cases.
 	// printf("Write: %lu\n", pageNum+mem->pageOffset);
 	dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
 	// dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);
@@ -127,8 +129,7 @@ int8_t dfStorageErasePages(storageState *storage, id_t startPage, id_t endPage)
 {
 	/* Erase pages. TODO: Can we erase as a block instead of individual pages? */
 	for (id_t i=startPage; i <= endPage; i++)
-	{
-		printf("ERASE PARGE: %lu\n", i);
+	{		
 		dfErase(i);		
 	}
 	return 0;

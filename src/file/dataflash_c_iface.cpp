@@ -89,7 +89,7 @@ int32_t dfwrite(int32_t pagenum, void *ptr, int32_t size)
 {	
 	//printf("Write page: %d\n", pagenum);
 	df_buffer_1_write(dflash, 0, (uint8_t*) ptr, size);		
-	// df_buffer_1_to_MM_erase(dflash, pagenum);
+	df_buffer_1_to_MM_no_erase(dflash, pagenum);
 	
 	while (DATAFLASH_BUSY == get_ready_status(dflash))
 	{

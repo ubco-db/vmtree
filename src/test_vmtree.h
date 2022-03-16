@@ -125,7 +125,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     printf("\nSTARTING VMTREE INDEX TESTS.\n");
 
     uint32_t stepSize = 100, numSteps = 10;
-    count_t r, numRuns = 3, l;
+    count_t r, numRuns = 1, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -144,25 +144,25 @@ void runalltests_vmtree(memory_t* storageInfo)
 
         srand(r);
         randomseqState rnd;
-        rnd.size = 1000;
+        rnd.size = 10000;
         stepSize = rnd.size / numSteps;
         uint32_t n = rnd.size; 
         rnd.prime = 0;        
 
         /* Configure file storage */      
-        /*       
+               
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
-        storage->storage.size = 25000;
+        storage->storage.size = 5000;
         if (fileStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-        */
-        /* Configure dataflash memory storage */     
         
+        /* Configure dataflash memory storage */     
+        /*
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
@@ -174,7 +174,7 @@ void runalltests_vmtree(memory_t* storageInfo)
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        
+        */
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        
@@ -233,9 +233,10 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->state = state;
         buffer->isValid = vmtreeIsValid;
         buffer->movePage = vmtreeMovePage;
+        buffer->checkMapping = vmtreeCheckMappingSpace;
 
-        state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
-        // state->parameters = 0;
+        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
+        state->parameters = 0;
         // state->parameters = OVERWRITE;
 
         if (state->parameters == 0)
@@ -266,24 +267,31 @@ void runalltests_vmtree(memory_t* storageInfo)
 
             *((int32_t*) recordBuffer) = v;
             *((int32_t*) (recordBuffer+4)) = v;             
-            printf("Num: %lu KEY: %lu\n", i, v);
+            // printf("Num: %lu KEY: %lu\n", i, v);
 
-            if (i >= 652)
+           // if (i >= 2812)
             {
-       //         vmtreePrint(state);   
+                // printf("Num: %lu KEY: %lu\n", i, v);
+              //  vmtreePrint(state);   
        //         vmtreePrintMappings(state);
             }
 
             if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + 4)) == -1)
-            {                  
-                vmtreePrint(state);               
-                printf("INSERT ERROR: %lu\n", v);
+            {    
+                printf("INSERT ERROR: %lu\n", v);              
+                vmtreePrint(state);     
+                vmtreePrintMappings(state);                      
                 return;
             }
              
             int32_t errors = 0;
-          //  if (i >= 1000)
-          //      errors = checkValues(state, recordBuffer, rnd.size, i, r);
+        //    if (i >= 640)
+            if (i % 100 == 0 && i >= 5500)
+            {
+                 printf("Num: %lu KEY: %lu\n", i, v);
+            
+                errors = checkValues(state, recordBuffer, rnd.size, i, r);
+            }
             if (errors > 0)
             {
                 printf("ERRORS: %d Num: %d\n", errors, i);
@@ -328,7 +336,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         /* Re-write tree to remove all mappings */
         // printf("Before clear mappings\n");
         /* OPTIONAL: Re-write tree to remove all mappings */
-        // vmtreeClearMappings(state, state->activePath[0]);
+        vmtreeClearMappings(state, state->activePath[0]);
         // printf("After clear mappings\n");
 
         state->numMappingCompare = 0;

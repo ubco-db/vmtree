@@ -64,6 +64,7 @@ typedef struct {
 	id_t 	numWrites;				/* Number of page writes */
 	id_t 	numOverWrites;			/* Number of page overwrites */
 	id_t 	numReads;				/* Number of page reads */
+	id_t 	numMoves;				/* Number of page moves due to erase */
 	id_t 	bufferHits;				/* Number of pages returned from buffer rather than storage */
 	count_t lastHit;				/* Buffer id of last buffer page hit */
 	count_t nextBufferPage;			/* Next page buffer id to use. Round robin */
@@ -73,6 +74,7 @@ typedef struct {
 	int8_t (*checkMapping)(void *state, id_t pageNum);									/* Function to determine if have space to add mapping with given pageNum */
 	int8_t 	(*movePage)(void *state, id_t prev, id_t curr, void* buf);					/* Function called when buffer moves a page location */
 	bitarr freePages;				/* Bit vector to determine free pages in memory */
+	void*	blockBuffer;			/* Buffer a block of pages when erasing */
 } dbbuffer;
 
 /**

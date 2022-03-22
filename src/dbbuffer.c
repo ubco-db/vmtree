@@ -56,10 +56,15 @@ void dbbufferInit(dbbuffer *state)
 	state->numReads = 0;
 	state->numWrites = 0;
 	state->numOverWrites = 0;
+	state->numMoves = 0;
 	state->bufferHits = 0;
 	state->lastHit = 0;
 	state->nextBufferPage = 1;
-	state->endDataPage = state->storage->size;	
+	// state->endDataPage = state->storage->size;	
+	/* Ensure end data page is a multiple of the block size */
+	state->endDataPage = (state->storage->size / state->eraseSizeInPages) * state->eraseSizeInPages;
+	state->endDataPage--;
+	state->storage->size = state->endDataPage;
 
 	/* Set free space flags */
 	state->freePages = malloc(sizeof(uint8_t)*(state->storage->size/8+1));
@@ -242,7 +247,7 @@ void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum)
 */
 int8_t erasePages(dbbuffer *state, id_t startPage, id_t endPage)
 {
-	printf("Erasing pages. Start: %d  End: %d\n", startPage, endPage);
+	// printf("Erasing pages. Start: %d  End: %d\n", startPage, endPage);
 	
 	state->storage->erasePages(state->storage, startPage, endPage);
 
@@ -320,8 +325,7 @@ int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
 	id_t parentId = 0;		/* TODO: Not currently used */
 	void *parentBuffer;		/* TODO: Not currently used */
 	int32_t pageIdToMove[8];		/* TODO: Should be size of erase size */			
-	uint8_t numMove;
-	id_t pageNum;
+	uint8_t numMove;	
 	id_t totalPagesLookedAt = 0;
 
 	/* Count how many pages free there are from current write location up to end erase point */
@@ -338,10 +342,8 @@ int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
 		page = state->nextPageWriteId;
 		for (id_t j=0; j <= numCheck; j++)
 		{	if (page > state->endDataPage)
-				page = 0;
-			// int8_t response = state->isValid(state->state, page, &parentId, &parentBuffer);
-			if (dbbufferIsFree(state, page))
-			// if (response == -1)
+				page = 0;			
+			if (dbbufferIsFree(state, page))			
 				num++;
 			if (num >= pages)
 				return 1;
@@ -350,7 +352,6 @@ int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
 	}
 
 	/* Do not have enough free pages. Erase next block */	
-
 
 finderase:
 	numMove = 0;
@@ -361,9 +362,7 @@ finderase:
 	{	/* Wrap around in memory */
 		startErase = 0;
 		endErase = state->eraseSizeInPages-1;
-	}	
-
-	int8_t erasePossible = 1;
+	}		
 
 	for (id_t i=startErase; i <= endErase; i++)
 	{
@@ -374,27 +373,36 @@ finderase:
 
 		if (response == 1)
 		{	/* Mapping but no valid node. Must update parent but not the node itself. */
-			/* Active mapping will be detected when try to write page. Page will be skipped. */					
-			pageIdToMove[numMove] = -1;										
+			/* Active mapping will be detected when try to write page. Page will be skipped. */											
+			pageIdToMove[numMove] = -1;		
+			// TODO: Need to set dbBufferIsFree to 0 for these pages that are not valid but also cannot overwrite due to mapping?	
+			// Works fine now even when set to 1 as dbbufferNextValidPage checks mapping at write time and will not allow write because of that. Consider simplifying.					
 		}
 		else
-		{	/* Valid node at this location. Must rewrite node and its parent. */
+		{	/* Valid node at this location. Must rewrite node and its parent. */			
 			pageIdToMove[numMove] = i;
 
-			/* Verify there is mapping space to save this mapping. Otherwise, move is not possible. */
-			erasePossible = state->checkMapping(state->state, i);
-			if (!erasePossible)
-			{	printf("Skipping as no space for saving mapping: %lu\n", i);
-				break;
+			/* Read page */
+			void *buf = readPage(state, i);
+			if (buf == NULL)
+			{
+				printf("Read page error: %lu\n", i);
+				buf = readPage(state, i);
 			}
+			/* Copy required pages into buffer block */
+			memcpy(state->blockBuffer + numMove * state->pageSize, buf, state->pageSize);
 		}
 							
 		numMove++;
 	}
 
-	// if (numMove >= state->eraseSizeInPages/2)			
-	if (numMove >= state->eraseSizeInPages/2 || !erasePossible)			
-	{
+	state->numMoves += numMove;
+	
+	// if (numMove > 0)
+	// 	printf("Number pages moved: %d\n", numMove);
+
+	if (numMove >= state->eraseSizeInPages)			
+	{	// Full block. Skip
 		// printf("Skipping pages and leaving as is. Start: %d End: %d\n", startErase, endErase);				
 		state->erasedEndPage = endErase;
 		totalPagesLookedAt += state->eraseSizeInPages;
@@ -402,44 +410,24 @@ finderase:
 		if (totalPagesLookedAt >= state->endDataPage - pages)
 			return 0;
 		goto finderase;
-		/* TODO: How to skip over full blocks */
 	}
 
+
+
+	/* Erase block */
+	erasePages(state, startErase, endErase);	
+	
+	/* Copy pages back into erased block */
 	for (id_t i=0; i < numMove; i++)
 	{			
 		if (pageIdToMove[i] != -1)
 		{	/* Must move page */
 			// printf("Moving page: %d\n", pageIdToMove[i]);
 		
-			/* Read page */
-			void *buf = readPage(state, pageIdToMove[i]);
-			if (buf != NULL)
-			{
-				id_t savedNextWrite = state->nextPageWriteId+1;				
-				pageNum = dbbufferNextValidPage(state);																
-				if ( (savedNextWrite < startErase && pageNum >= startErase) 
-					 || (savedNextWrite > startErase && pageNum < savedNextWrite && pageNum >= startErase) )
-				{	/* Passed the boundary of erase pages. Stop for now. TODO: Make this better? */
-					printf("Exhausted pages in erased buffer.\n");
-					return 0;
-				}
-				/* Update page */
-				int8_t result = state->movePage(state->state, pageIdToMove[i], pageNum, buf);
-
-				if (!result)
-				{
-					/* Write page */
-					writePageDirect(state, buf, pageNum);				
-				}
-				else
-				{
-					printf("Move page unsuccessful: %lu\n", pageIdToMove[i]);
-				}
-			}
+			/* Write page from block buffer */
+			writePageDirect(state, state->blockBuffer + i * state->pageSize, pageIdToMove[i]);							
 		}
 	}
-
-	erasePages(state, startErase, endErase);	
 
 	state->erasedEndPage = endErase;
 	
@@ -546,6 +534,7 @@ void printStats(dbbuffer *state)
 	printf("Buffer hits: %lu\n", state->bufferHits);
 	printf("Num writes: %lu\n", state->numWrites);
 	printf("Num overwrites: %lu\n", state->numOverWrites);	
+	printf("Num moves: %d\n", state->numMoves);
 }
 
 
@@ -559,7 +548,8 @@ void dbbufferClearStats(dbbuffer *state)
 	state->numReads = 0;
 	state->numWrites = 0;
 	state->bufferHits = 0;
-	state->numOverWrites = 0;	
+	state->numOverWrites = 0;
+	state->numMoves = 0;	
 }
 
 /**

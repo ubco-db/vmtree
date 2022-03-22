@@ -1,9 +1,9 @@
 /******************************************************************************/
 /**
-@file		test_btree.h
+@file		test_vmtree.h
 @author		Ramon Lawrence
 @brief		This file does performance/correctness testing of VMTree.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
             Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -154,7 +154,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
-        storage->storage.size = 5000;
+        storage->storage.size = 3000;
         if (fileStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
@@ -205,6 +205,11 @@ void runalltests_vmtree(memory_t* storageInfo)
         {   printf("Failed to allocate buffer.\n");
             return;
         }
+        buffer->blockBuffer = malloc((size_t) buffer->eraseSizeInPages * buffer->pageSize);
+        if (buffer->blockBuffer == NULL)
+        {   printf("Failed to allocate block buffer.\n");
+            return;
+        }
         buffer->storage = (storageState*) storage;         
 
         /* Configure btree state */
@@ -245,6 +250,7 @@ void runalltests_vmtree(memory_t* storageInfo)
             printf("VMTREE with overwrite.\n");
         else if (state->parameters == NOR_OVERWRITE)
             printf("VMTREE with NOR overwrite.\n");
+        printf("Storage size: %lu  Memory size: %lu\n", storage->storage.size, M);
 
         /* Initialize VMTree structure with parameters */
         vmtreeInit(state);
@@ -286,12 +292,12 @@ void runalltests_vmtree(memory_t* storageInfo)
              
             int32_t errors = 0;
         //    if (i >= 640)
-            if (i % 100 == 0 && i >= 5500)
-            {
-                 printf("Num: %lu KEY: %lu\n", i, v);
+         //   if (i % 100 == 0 && i >= 5500)
+        //    {
+          //       printf("Num: %lu KEY: %lu\n", i, v);
             
-                errors = checkValues(state, recordBuffer, rnd.size, i, r);
-            }
+         //       errors = checkValues(state, recordBuffer, rnd.size, i, r);
+         //   }
             if (errors > 0)
             {
                 printf("ERRORS: %d Num: %d\n", errors, i);
@@ -336,7 +342,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         /* Re-write tree to remove all mappings */
         // printf("Before clear mappings\n");
         /* OPTIONAL: Re-write tree to remove all mappings */
-        vmtreeClearMappings(state, state->activePath[0]);
+        // vmtreeClearMappings(state, state->activePath[0]);
         // printf("After clear mappings\n");
 
         state->numMappingCompare = 0;

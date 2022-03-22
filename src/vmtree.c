@@ -764,6 +764,9 @@ void vmtreeFixMappings(vmtreeState *state, id_t prevId, id_t currId, int16_t l)
 
 		prevId = vmtreeUpdatePrev(state, buf, state->activePath[l]);
 	
+		/* Indicate that previous page is no longer valid */
+		dbbufferSetFree(state->buffer, state->activePath[l]);
+
 		vmtreeUpdatePointers(state, buf, 0, VMTREE_GET_COUNT(buf));	
 		state->savedMappingPrev = EMPTY_MAPPING;
 		currId = writePage(state->buffer, buf);
@@ -1651,6 +1654,9 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 	/* After split, reset previous node index to unused. */
 	VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);
 	
+	// Invalidate page
+	dbbufferSetFree(state->buffer, nextId);
+
 	if (childNum < mid)
 	{	/* Insert key in page with smaller values */
 		/* Update count on page then write */

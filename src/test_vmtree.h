@@ -135,7 +135,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     uint32_t rreads[numSteps][numRuns];
     uint32_t rhits[numSteps][numRuns];
 
-    int8_t M = 3;  
+    int8_t M = 3, logBufferPages = 2;    
 
     for (r=0; r < numRuns; r++)
     {
@@ -232,6 +232,12 @@ void runalltests_vmtree(memory_t* storageInfo)
         {   printf("Failed to allocate mapping buffer size: %d\n", state->mappingBufferSize);
             return;
         }
+
+        /* Enable log buffer by allocating space or set to NULL for no log buffer */
+        state->logBuffer = NULL;
+        state->logBufferSize = logBufferPages * buffer->pageSize;
+        if (state->logBufferSize > 0)
+            state->logBuffer  = malloc(state->logBufferSize);  
 
         /* Connections between buffer and VMTree */
         buffer->activePath = state->activePath;

@@ -124,6 +124,11 @@ typedef struct {
 	int8_t	maxTries;							/* Max number of probes for mapping hash table */
 	id_t	savedMappingPrev;					/* Save a mapping during parent overflow fixing. Previous page id*/
 	id_t	savedMappingCurr;					/* Save a mapping during parent overflow fixing. Current page id*/
+	void*	logBuffer;							/* Log buffer stores inserts to perform in batch */
+	id_t	logBufferSize;						/* Size of log buffer in bytes */
+	count_t maxLogRecords;						/* Maximum records stored in log buffer */
+	count_t numLogRecords;						/* Number of records currently stored in log buffer */
+	count_t currLogRecord;						/* Current log record index in log buffer */
 } vmtreeState;
 
 typedef struct {

@@ -125,7 +125,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     printf("\nSTARTING VMTREE INDEX TESTS.\n");
 
     uint32_t stepSize = 100, numSteps = 10;
-    count_t r, numRuns = 1, l;
+    count_t r, numRuns = 3, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -135,7 +135,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     uint32_t rreads[numSteps][numRuns];
     uint32_t rhits[numSteps][numRuns];
 
-    int8_t M = 3, logBufferPages = 2;    
+    int8_t M = 3, logBufferPages = 4;    
 
     for (r=0; r < numRuns; r++)
     {
@@ -154,7 +154,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
-        storage->storage.size = 3000;
+        storage->storage.size = 5000;
         if (fileStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
@@ -297,13 +297,20 @@ void runalltests_vmtree(memory_t* storageInfo)
             }
              
             int32_t errors = 0;
-        //    if (i >= 640)
-         //   if (i % 100 == 0 && i >= 5500)
-        //    {
-          //       printf("Num: %lu KEY: %lu\n", i, v);
-            
-         //       errors = checkValues(state, recordBuffer, rnd.size, i, r);
-         //   }
+            /*
+            if (i != 1 && (i-1) % 64 == 0)
+            {
+                int32_t errors = checkValues(state, recordBuffer, rnd.size, i-1, r);
+            // int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+                if (errors > 0)
+                {
+                    printf("ERRORS: %d Num: %d\n", errors, i);
+                    vmtreePrint(state);   
+                    vmtreePrintMappings(state);
+                    return;
+                }
+            }
+            */        
             if (errors > 0)
             {
                 printf("ERRORS: %d Num: %d\n", errors, i);
@@ -327,6 +334,9 @@ void runalltests_vmtree(memory_t* storageInfo)
                 }
             }        
         }    
+
+        /* Call flush to make sure log buffer or any other buffers have been wrote to storage */
+        vmtreeFlush(state);
 
         unsigned long end = millis();   
 

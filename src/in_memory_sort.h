@@ -4,7 +4,7 @@
 @author		Kris Wallperington
 @author		Ramon Lawrence
 @brief		Implementation of an in-place, recursive quicksort written by the author.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			IonDB Project Contributors (see AUTHORS.md)
 @par
@@ -21,14 +21,14 @@
 			License.
 */
 /******************************************************************************/
-
-#ifndef IN_MEMORY_SORT_H
-#define IN_MEMORY_SORT_H
+#if !defined(IN_MEMORY_SORT_H_)
+#define IN_MEMORY_SORT_H_
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
+#include <stdlib.h>
 #include <stdint.h>
 
 /**
@@ -41,14 +41,20 @@ extern "C" {
                 Size of each record
 @param		compare_fcn
 				Comparison function
-@param		offset
-				Pointer offset when performing comparison (allows to compare not just at start of record)
 @return		Return 0 if success. Non-zero value if error.
 */
-int in_memory_sort(void *data, uint32_t num_values, int16_t value_size, int8_t (*compare_fcn)(void* a, void* b), int16_t offset);
+int
+in_memory_sort(
+	void *data,
+	uint32_t num_values,
+	int value_size,
+	int8_t (*compare_fcn)(void* a, void* b),
+	int sort_algorithm
+);
+
 
 #if defined(__cplusplus)
 }
 #endif
 
-#endif
+#endif /* IN_MEMORY_SORT_H_ */

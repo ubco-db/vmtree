@@ -40,7 +40,7 @@
 #include <math.h>
 
 #include "vmtree.h"
-
+#include "in_memory_sort.h"
 
 /*
 Comparison functions. Code is adapted from ldbm.
@@ -124,6 +124,15 @@ void vmtreeInit(vmtreeState *state)
 
 		printf("Data pages: Max records: %d Header size: %d Bitmap size: %d  Interior pages: Max records: %d Header size: %d Bitmap size: %d\n", 
 				state->maxRecordsPerPage, state->headerSize, state->bitmapSize, state->maxInteriorRecordsPerPage, state->interiorHeaderSize, state->interiorBitmapSize);
+	}
+
+	/* Compute log buffer sizes (if enabled) */
+	if (state->logBuffer != NULL)
+	{
+		state->currLogRecord = 0;
+		state->numLogRecords = 0;
+		state->maxLogRecords = state->logBufferSize / (state->keySize+state->dataSize);
+		printf("Log buffer size in records: %lu\n", state->maxLogRecords);
 	}
 
 	/* Hard-code for testing */
@@ -1950,13 +1959,13 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 int8_t vmtreePutBatch(vmtreeState *state)
 {	
 	int8_t 	l, mustSearch = 1, mustWrite = 1;
-	void 	*next, *buf, *ptr, *key, *data, *nextkey;	
+	void 	*buf, *ptr, *key, *data, *nextkey;	
 	id_t  	prevId, parent, nextId = state->activePath[0];	
 	int32_t pageNum, childNum;
 	int16_t count;
 	id_t    bufferedParentKey;
 
-	/* Sort log records */
+	/* Sort log records */ 
 	in_memory_sort(state->logBuffer, (uint32_t) state->numLogRecords, state->recordSize, state->compareKey, 1);
 
 	for (uint32_t logidx=0; logidx < state->numLogRecords; logidx++)
@@ -1965,8 +1974,8 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		key = ptr;
 		data = ptr+state->keySize;
 		// printf("Writing buffer record: %lu\n", (*(id_t*) ptr));		
-	//	if (mustSearch == 1)
-	//	 	vmtreePrint(state);			// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet
+		// if (mustSearch == 1)
+		// 	vmtreePrint(state);			// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet
 
 		if ( (*(id_t*) ptr) == 18)
 		{
@@ -2424,13 +2433,8 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 		{			
 			/* Log buffer is full. Sort it then empty it. */			
 			if (state->parameters == NOR_OVERWRITE)
-			{
-				for (count_t i=0; i < state->maxLogRecords; i++)
-				{
-					ptr =state->logBuffer+state->recordSize*i;
-					// printf("Writing buffer record: %lu\n", (*(id_t*) ptr));
-					vmtreePutNorOverwrite(state, ptr, ptr+state->keySize);
-				}
+			{				
+				vmtreePutBatchNorOverwrite(state);
 			}
 			else
 			{				
@@ -2703,31 +2707,11 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 */
 int8_t vmtreeFlush(vmtreeState *state)
 {
-	/* TODO: Needs to be implemented. There is currently no output write buffer. Each write is done immediately. */
-	// int32_t pageNum = writePage(state->buffer, state->writeBuffer);	
-
-	/* Add pointer to page to B-tree structure */		
-	/* So do not have to allocate memory. Use the next key value in the buffer temporarily to store a MAX_KEY of all 1 bits */	
-	/* Need to copy key from current write buffer as will reuse buffer */
-	/*
-	memcpy(state->tempKey, (void*) (state->buffer+state->headerSize), state->keySize); 	
-	void *maxkey = state->buffer + state->recordSize * vmTREE_GET_COUNT(state->buffer) + state->headerSize;
-	memset(maxkey, 1, state->keySize);
-	 vmtreeUpdateIndex(state, state->tempKey, maxkey, pageNum);
-	*/
-	// TODO: Look at what the key should be when flush. Needs to be one bigger than data set 
-
-	// void *maxkey = state->writeBuffer + state->recordSize * (VMTREE_GET_COUNT(state->writeBuffer)-1) + state->headerSize;
-	// int32_t mkey = *((int32_t*) maxkey)+1;
-	// maxkey = state->writeBuffer + state->headerSize;
-	// int32_t minKey = *((int32_t*) maxkey);
-//	if (vmtreeUpdateIndex(state, &minKey, &mkey, pageNum) != 0)
-//		return -1;
-		
-	// fflush(state->buffer->file);
-
-	/* Reinitialize buffer */
-	// initBufferPage(state->buffer, 0);
+	if (state->logBuffer != NULL)
+	{			
+		vmtreePutBatch(state);		
+		state->numLogRecords = 0;
+	}
 	return 0;
 }
 

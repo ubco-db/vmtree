@@ -2434,7 +2434,7 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 			/* Log buffer is full. Sort it then empty it. */			
 			if (state->parameters == NOR_OVERWRITE)
 			{				
-				vmtreePutBatchNorOverwrite(state);
+				// vmtreePutBatchNorOverwrite(state);
 			}
 			else
 			{				

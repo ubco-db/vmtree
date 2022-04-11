@@ -770,7 +770,7 @@ void vmtreeFixMappings(vmtreeState *state, id_t prevId, id_t currId, int16_t l)
 
 		state->savedMappingPrev = prevId;
 		state->savedMappingCurr = currId;
-
+ 
 		prevId = vmtreeUpdatePrev(state, buf, state->activePath[l]);
 	
 		/* Indicate that previous page is no longer valid */
@@ -1551,6 +1551,410 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 }
 
 /**
+@brief     	Puts a batch of buffered log records into tree.
+			More efficient than using vmtreePutRecord() individually for each record.
+			This version supports NOR overwrite.			 
+@param     	state
+                VMTree algorithm state structure
+@param     	key
+                Key for record
+@param     	data
+                Data for record
+@return		Return 0 if success. Non-zero value if error.
+*/
+int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
+{	
+	int8_t 	l, mustSearch = 1, mustWrite = 1;
+	void 	*buf, *ptr, *key, *data, *nextkey;	
+	id_t  	prevId, parent, nextId = state->activePath[0];	
+	int32_t pageNum, childNum;
+	int16_t count;
+	id_t    bufferedParentKey;
+
+	/* Sort log records */ 
+	in_memory_sort(state->logBuffer, (uint32_t) state->numLogRecords, state->recordSize, state->compareKey, 1);
+
+	for (uint32_t logidx=0; logidx < state->numLogRecords; logidx++)
+	{			
+		ptr =state->logBuffer+state->recordSize*logidx;
+		key = ptr;
+		data = ptr+state->keySize;
+		// printf("Writing buffer record: %lu\n", (*(id_t*) ptr));		
+		// if (mustSearch == 1)
+		//  	vmtreePrint(state);				// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet	
+			// TODO: May want to check for erase capacity at this point to guarantee that have space.
+
+		if (mustSearch == 1)
+		{
+			/* Find insert leaf */
+			/* Starting at root search for key */
+			nextId = state->activePath[0];
+
+			for (l=0; l < state->levels-1; l++)
+			{			
+				buf = readPage(state->buffer, nextId);		
+				if (buf == NULL)
+				{
+					printf("ERROR reading page: %d\n", nextId);
+					return -1;
+				}
+
+				/* Find the key within the node. */
+				childNum = vmtreeSearchNode(state, buf, key, nextId, 1);	
+				
+				if (l == 0)
+					memcpy(&bufferedParentKey, buf+state->interiorHeaderSize+state->keySize*childNum, state->keySize);
+				else
+				{	// Keep smallest separator seen so far. This is necessary as right most child may have separator larger than parent separator.
+					memcpy(state->tempKey, buf+state->interiorHeaderSize+state->keySize*childNum, state->keySize);
+					if (state->compareKey(state->tempKey, &bufferedParentKey) < 0)
+						memcpy(&bufferedParentKey, state->tempKey, state->keySize);
+				}				
+				
+				// printf("Separator key: %lu\n", bufferedParentKey);	
+
+				nextId = getChildPageId(state, buf, nextId, l, childNum);		
+				if (nextId == -1)
+					return -1;					
+				state->activePath[l+1] = nextId;
+			}
+			
+			/* Read the leaf node */
+			// buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: May want to use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+			buf = readPage(state->buffer, nextId);				
+			mustSearch = 0;
+		}
+		
+		if (logidx == state->numLogRecords-1)
+			mustWrite = 1;
+		else if (state->levels == 1)
+			mustWrite = 0;
+		else
+		{
+			nextkey = state->logBuffer+state->recordSize*(logidx+1);
+			mustWrite = state->compareKey(nextkey, &bufferedParentKey) < 0 ? 0 : 1;
+			mustSearch = mustWrite;
+		}
+			
+		// printf("  Must write: %d  Must search: %d\n", mustWrite, mustSearch);
+
+		/* Append key/data record to first open space in node */
+		unsigned char* bm = buf + state->headerSize - state->bitmapSize * 2;		
+		uint8_t inserted = 0;
+
+		for (int i=0; i < state->bitmapSize*8 && i < state->maxRecordsPerPage; i++)
+		{	/* Free location if bit in count bitmap is 1 */
+			if (bitarrGet(bm, i) == 1)
+			{	/* Found a spot. Insert key/data record. */
+				bitarrSet(bm, i, 0);	
+
+				/* Copy record onto page */		
+				ptr = buf + state->headerSize;
+				memcpy(ptr + i * state->keySize, key, state->keySize);
+				memcpy(ptr + state->maxRecordsPerPage*state->keySize + i * state->dataSize, data, state->dataSize);
+				
+				/* Write page */
+				if (mustWrite)
+					pageNum = overWritePage(state->buffer, buf, nextId);	
+				
+				inserted = 1;
+				break;
+			}
+		}	
+
+		if (inserted)
+			continue;
+
+		mustSearch = 1;
+		/* Current leaf page is full. Perform split. */
+		count = vmtreeSortBlockNorOverwrite(state, buf);
+		int8_t mid = count/2;
+		id_t left, right;
+		state->numNodes++;		
+
+		/* After split, reset previous node index to unused. */
+		VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);
+		
+		// Invalidate page
+		dbbufferSetFree(state->buffer, nextId);
+		ptr = buf + state->headerSize;
+		int8_t compareKeyMid = state->compareKey(key, (void*) (ptr + state->keySize * mid));
+
+		/* Duplicate page to another buffer so do not lose data when shifting things around and reseting rest of bits to 1. */
+		/* Using this duplicate buffer would building right page created during a split. */
+		/* NOTE: Using buffer 2 which requires algorithm has at least 3 buffers or buffer 0 depending on what buffer leaf page is in. */
+		VMTREE_SET_LEAF(buf);
+		int8_t bufIdx = 2;
+		if (buf == state->buffer->buffer+state->buffer->pageSize*2)
+		{	// printf("Leaf page in buffer 2\n");
+			bufIdx = 0;
+		}
+		void *buf2 = initBufferPage(state->buffer, bufIdx);
+		memcpy(buf2, buf, state->buffer->pageSize);
+
+		if (compareKeyMid < 0)
+		{	/* Insert key in page with smaller values */
+			/* Update bitmaps on page */		
+			vmtreeSetCountBitsLeaf(state, buf, mid+1);				
+
+			/* Buffer key/data record at mid point so do not lose it */	
+			memcpy(state->tempKey, ptr + state->keySize * mid, state->keySize);
+			memcpy(state->tempData, ptr + state->keySize * state->maxRecordsPerPage + state->dataSize * mid, state->dataSize);
+
+			/* Shift records at and after insert point down one record */		
+			vmtreeInsertLeaf(state, buf, mid, key, data);
+		
+			/* Reset rest of block to 1s */
+			vmtreeResetBlock(state, buf, mid+1);
+
+			left = writePage(state->buffer, buf);	
+			// vmtreePrintNodeBuffer(state, left, 0, buf);
+
+			/* Copy buffered record to start of block */
+			memcpy(buf2 + state->headerSize, state->tempKey, state->keySize);
+			memcpy(buf2 + state->headerSize + state->keySize * state->maxRecordsPerPage, state->tempData, state->dataSize);
+
+			/* Copy records after mid to start of page */	
+			memmove(buf2 + state->headerSize + state->keySize, buf2 + state->headerSize + state->keySize*(mid+1), state->keySize*(count-mid));		
+			memmove(buf2 + state->headerSize + state->keySize*state->maxRecordsPerPage + state->dataSize, buf2 + state->headerSize +state->keySize*state->maxRecordsPerPage + state->dataSize*(mid+1), state->dataSize*(count-mid));				
+			
+			vmtreeSetCountBitsLeaf(state, buf2, count-mid);
+			
+			/* Reset rest of block to 1s */
+			vmtreeResetBlock(state, buf2, count-mid);
+
+			right = writePage(state->buffer, buf2);
+			// vmtreePrintNodeBuffer(state, right, 0, buf2);
+		}
+		else
+		{	/* Insert key in page with larger values */
+			/* Update bitmaps on page */				
+			vmtreeSetCountBitsLeaf(state, buf, mid+1);	
+			
+			/* Buffer key/data record at mid point so do not lose it */
+			if (state->compareKey(key, (void*) (ptr + state->keySize * (mid+1))) < 0)
+			{	/* Middle key to promote is this key. */
+				memcpy(state->tempKey, key, state->keySize);
+			}
+			else
+			{
+				ptr =  buf2 + state->headerSize + state->keySize * (mid+1);
+				memcpy(state->tempKey, ptr, state->keySize);
+			}
+
+			/* Reset rest of block to 1s */
+			vmtreeResetBlock(state, buf, mid+1);
+
+			left = writePage(state->buffer, buf);	
+			// vmtreePrintNodeBuffer(state, left, 0, buf);
+			
+			/* New split page starts off with original page in buffer. Copy records around as required. */
+			/* Copy all records to start of buffer */
+			memmove(buf2 + state->headerSize, buf2 + state->headerSize + state->keySize*(mid+1), state->keySize*(count-mid-1));		
+			memmove(buf2 + state->headerSize+state->keySize*state->maxRecordsPerPage, buf2 + state->headerSize +state->keySize*state->maxRecordsPerPage + state->dataSize*(mid+1), state->dataSize*(count-mid-1));				
+
+			/* Insert record onto page */
+			vmtreeInsertLeaf(state, buf2, (count-mid-1), key, data);			
+
+			vmtreeSetCountBitsLeaf(state, buf2, count-mid);
+			/* Reset rest of block to 1s */
+			vmtreeResetBlock(state, buf2, count-mid);
+
+			right = writePage(state->buffer, buf2);
+			// vmtreePrintNodeBuffer(state, right, 0, buf2);
+		}		
+
+		/* Recursively add pointer to parent node. */
+		for (l=state->levels-2; l >=0; l--)
+		{		
+			parent = state->activePath[l];
+			/* Special case with memory wrap: Parent node may have been moved due to memory operations in between previous writes. Check mapping to verify it is correct. */
+			// TODO: Check if mapping really is needed here. 
+			// parent = vmtreeGetMapping(state, parent);
+			state->nodeSplitId = parent;
+
+			// Invalidate previous page
+			dbbufferSetFree(state->buffer, parent);
+
+			// printf("Here: Left: %d  Right: %d Key: %d  Parent: %d\n", left, right, *((int32_t*) state->tempKey), parent);
+
+			/* Read parent node */
+			buf = readPageBuffer(state->buffer, parent, 0);			/* Forcing read to buffer 0 even if buffered in another buffer as will modify this page. */
+			if (buf == NULL)
+				return -1;				
+
+			/* Insert new key/pointer pair in node and update pointer of key just larger than this one */
+			if (vmtreeInsertInterior(state, buf, state->tempKey, left, right))
+			{			
+				pageNum = overWritePage(state->buffer, buf, parent);
+				goto donerec;		
+			}
+		
+			/* No space. Split interior node and promote key/pointer pair */
+			// printf("Splitting interior node.\n");
+			state->numNodes++;
+			// vmtreePrintNodeBuffer(state, parent, 0, buf);
+
+			/* After split, reset previous node index to unassigned. */
+			VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);
+
+			count = vmtreeSortInteriorBlockNorOverwrite(state, buf)-1;	
+			// vmtreePrintNodeBuffer(state, parent, 0, buf);
+
+			/* TODO: Optimization is to check if have at least two open spaces now that have cleaned up node. If so, then write new node. No need to split further. */
+			mid = count/2;
+			// if (count % 2 == 0)
+			// 	mid--;
+
+			// Invalidate page
+			dbbufferSetFree(state->buffer, parent);
+			ptr = buf + state->interiorHeaderSize;
+			int8_t compareKeyMid = state->compareKey(state->tempKey, (void*) (ptr + state->keySize * mid));	
+			int8_t compareKeyMid2 = state->compareKey(state->tempKey, (void*) (ptr + state->keySize * (mid+1)));	
+			VMTREE_SET_NOR_INTERIOR(buf);
+
+			/* Duplicate page to another buffer so do not lose data when shifting things around and reseting rest of bits to 1. */
+			/* Using this duplicate buffer would building right page created during a split. */
+			/* NOTE: Using buffer 2 which requires algorithm has at least 3 buffers. */		
+			void *buf2 = initBufferPage(state->buffer, 2);
+			memcpy(buf2, buf, state->buffer->pageSize);
+
+			if (compareKeyMid < 0)
+			{	/* Insert key/pointer in page with smaller values */		
+				/* Update count on page then write */			
+				vmtreeSetCountBitsInterior(state, buf, mid+2);							
+				// vmtreeUpdatePointers(state, buf, 0, count);
+				
+				/* Buffer key/pointer record at mid point so do not lose it */
+				/* TODO: Using tempData here as already using tempKey. This would be a problem if data size is < key size. */
+				memcpy(state->tempData, buf + state->interiorHeaderSize + state->keySize * (mid), state->keySize);
+
+				/* TODO: Also buffering next key after mid point as lose it during shift down. Figure out a better way and do not hardcode key type. */
+				id_t tempKeyAfterMid;
+				memcpy(&tempKeyAfterMid, buf + state->interiorHeaderSize + state->keySize * (mid+1), state->keySize);
+				id_t tempPtr;
+				memcpy(&tempPtr, buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage + sizeof(id_t) * (mid+1), sizeof(id_t));
+				
+				vmtreeInsertInteriorNew(state, buf, mid+1, state->tempKey, left, right);	
+			
+				/* Reset rest of block to 1s */
+				vmtreeResetBlockInterior(state, buf, mid+2);
+
+				left = writePage(state->buffer, buf);				
+				// vmtreePrintNodeBuffer(state, left, 0, buf);
+
+				vmtreeSetCountBitsInterior(state, buf2, count-mid); // +1?
+						
+				/* Copy buffered pointer to start of block */			
+				ptr = buf2 + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;
+				memcpy(ptr, &tempPtr, sizeof(id_t));
+				memcpy(buf2 + state->interiorHeaderSize, &tempKeyAfterMid, state->keySize);
+
+				/* Copy records after mid to start of page */					
+				memcpy(buf2 + state->interiorHeaderSize + state->keySize, buf2 + state->interiorHeaderSize + state->keySize * (mid+2), state->keySize*(count-mid-1));									
+				memmove(ptr + sizeof(id_t), ptr + sizeof(id_t) * (mid+2), sizeof(id_t)*(count-mid-1));	 // -1 is new				
+
+				/* Reset rest of block to 1s */
+				vmtreeResetBlockInterior(state, buf2, count-mid);
+
+				// vmtreeUpdatePointers(state, buf, 0, count-mid-1);
+				right = writePage(state->buffer, buf2);			
+				// vmtreePrintNodeBuffer(state, right, 0, buf2);
+
+				/* Keep temporary key (move from temp data) */
+				memcpy(state->tempKey, state->tempData, state->keySize);
+			}
+			else
+			{	/* Insert key/pointer in page with larger values */
+				/* Update count on page then write */
+				// if (count % 2 == 0)
+				// 	mid++;
+				vmtreeSetCountBitsInterior(state, buf, mid+1);						
+				// vmtreeUpdatePointers(state, buf, 0, count);						
+
+				ptr = buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;
+		//		if (compareKeyMid2 < 0)
+		//		{	/* Promote current key that just got promoted. */
+		//			memcpy(state->tempData, state->tempKey, state->keySize);				
+	//			}
+	//			else
+				{
+					/* TODO: Using tempData here as already using tempKey. This would be a problem if data size is < key size. */
+					memcpy(state->tempData, buf + state->interiorHeaderSize + state->keySize * (mid), state->keySize);
+				}
+				
+				/* Reset rest of block to 1s */
+				vmtreeResetBlockInterior(state, buf, mid+1);
+
+				id_t tmpLeft = writePage(state->buffer, buf);	
+				// vmtreePrintNodeBuffer(state, tmpLeft, 0, buf);
+
+				ptr = buf2 + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;						
+				if (compareKeyMid2 >= 0)
+				{
+					/* Copy records after mid to start of page */	
+					memcpy(buf2 + state->interiorHeaderSize, buf2 + state->interiorHeaderSize + state->keySize * (mid+1), state->keySize*(count-mid));			
+					memcpy(ptr, ptr + sizeof(id_t) * (mid+1), sizeof(id_t)*(count-mid));						
+
+					vmtreeSetCountBitsInterior(state, buf2, count-mid+1);					
+					vmtreeInsertInteriorNew(state, buf2, count-mid, state->tempKey, left, right);											
+				}
+				else
+				{	// mid--;
+					vmtreeSetCountBitsInterior(state, buf2, count-mid+1);	
+					memcpy(buf2 + state->interiorHeaderSize+state->keySize, buf2 + state->interiorHeaderSize + state->keySize * (mid+1), state->keySize*(count-mid));			
+					memcpy(ptr + sizeof(id_t), ptr + sizeof(id_t) * (mid+1), sizeof(id_t)*(count-mid));		
+					// vmtreePrintNodeBuffer(state, right, 0, buf);
+					/* Right pointer is second pointer in node and new key is first key*/
+					/* Left pointer is first pointer in the first node */
+					memcpy(ptr, &left, sizeof(id_t));
+					memcpy(ptr + sizeof(id_t), &right, sizeof(id_t));
+					memcpy(buf2 + state->interiorHeaderSize, state->tempKey, state->keySize);			
+				}
+			
+				/* Reset rest of block to 1s */
+				vmtreeResetBlockInterior(state, buf2, count-mid+1);
+
+				// vmtreeUpdatePointers(state, buf, 0, count-mid);
+				right = writePage(state->buffer, buf2);
+				// vmtreePrintNodeBuffer(state, right, 0, buf);
+
+				/* Keep temporary key (move from temp data) */
+				left = tmpLeft;
+				memcpy(state->tempKey, state->tempData, state->keySize);
+			}
+		}
+		
+		/* Special case: Add new root node. */	
+		/* Create new root node with the two pointers */
+		// printf("New root: Left: %d  Right: %d Key: %d  Parent: %d\n", left, right, *((int32_t*) state->tempKey), parent);
+		state->levels++;
+		buf = initBufferPage(state->buffer, 0);		
+		vmtreeSetCountBitInterior(state, buf, 0);
+		vmtreeSetCountBitInterior(state, buf, 1);
+		VMTREE_SET_ROOT_NOR(buf);		
+		VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);		/* TODO: Determine if need to set previous pointer to state->activePath[0] (previous root). */
+		state->numNodes++;
+
+		/* Add key and two pointers */
+		memcpy(buf + state->interiorHeaderSize, state->tempKey, state->keySize);  /* NOTE: Need to have a MAX_KEY for right pointer. Nothing to do if init whole buffer to 1s at start. */
+		ptr = buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage;
+		memcpy(ptr, &left, sizeof(id_t));
+		memcpy(ptr + sizeof(id_t), &right, sizeof(id_t));
+
+		state->activePath[0] = writePage(state->buffer, buf);	
+		// vmtreePrintNodeBuffer(state, state->activePath[0], 0, buf);
+
+		int8_t i;
+donerec:
+		// TODO: Figure out goto without useless statement
+		i = 0;		
+	}
+	return 0;
+}
+
+
+/**
 @brief     	Puts a given key, data pair into structure.
 @param     	state
                 VMTree algorithm state structure
@@ -1974,13 +2378,8 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		key = ptr;
 		data = ptr+state->keySize;
 		// printf("Writing buffer record: %lu\n", (*(id_t*) ptr));		
-		// if (mustSearch == 1)
-		// 	vmtreePrint(state);			// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet
-
-		if ( (*(id_t*) ptr) == 18)
-		{
-		//	printf("HERE\n");
-		}
+		//if (mustSearch == 1)
+		// 	vmtreePrint(state);			// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet		
 
 		if (mustSearch == 1)
 		{
@@ -2419,7 +2818,7 @@ donerec:
 int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 {
 	/* Check for capacity. */	
-	if (!dbbufferEnsureSpace(state->buffer, 8))	
+	if (!dbbufferEnsureSpace(state->buffer, 32))  // NOTE: This is affected by number of log records if ensuring capacity before processing batch. Effects NOR_OVERWRITE.	
 	{
 		printf("Storage is at capacity. Must delete keys.\n");
 		return -1;
@@ -2434,7 +2833,7 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 			/* Log buffer is full. Sort it then empty it. */			
 			if (state->parameters == NOR_OVERWRITE)
 			{				
-				// vmtreePutBatchNorOverwrite(state);
+				 vmtreePutNorOverwriteBatch(state);
 			}
 			else
 			{				
@@ -2706,10 +3105,17 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
                 VMTree algorithm state structure
 */
 int8_t vmtreeFlush(vmtreeState *state)
-{
+{	
 	if (state->logBuffer != NULL)
 	{			
-		vmtreePutBatch(state);		
+		if (state->parameters == NOR_OVERWRITE)
+		{				
+				vmtreePutNorOverwriteBatch(state);
+		}
+		else
+		{				
+			vmtreePutBatch(state);
+		}
 		state->numLogRecords = 0;
 	}
 	return 0;

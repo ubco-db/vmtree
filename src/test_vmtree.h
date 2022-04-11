@@ -135,7 +135,7 @@ void runalltests_vmtree(memory_t* storageInfo)
     uint32_t rreads[numSteps][numRuns];
     uint32_t rhits[numSteps][numRuns];
 
-    int8_t M = 3, logBufferPages = 4;    
+    int8_t M = 3, logBufferPages = 2;    
 
     for (r=0; r < numRuns; r++)
     {
@@ -150,7 +150,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         rnd.prime = 0;        
 
         /* Configure file storage */      
-               
+        /*       
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
@@ -160,9 +160,9 @@ void runalltests_vmtree(memory_t* storageInfo)
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-        
+        */
         /* Configure dataflash memory storage */     
-        /*
+        
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
@@ -174,7 +174,7 @@ void runalltests_vmtree(memory_t* storageInfo)
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        */
+        
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        
@@ -193,7 +193,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         }
         buffer->pageSize = 512;
         buffer->numPages = M;
-        buffer->eraseSizeInPages = 4;
+        buffer->eraseSizeInPages = 16; // 4
         buffer->status = (id_t*) malloc(sizeof(id_t)*M);
         if (buffer->status == NULL)
         {   printf("Failed to allocate buffer status array.\n");
@@ -246,8 +246,8 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->movePage = vmtreeMovePage;
         buffer->checkMapping = vmtreeCheckMappingSpace;
 
-        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
-        state->parameters = 0;
+        state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
+        // state->parameters = 0;
         // state->parameters = OVERWRITE;
 
         if (state->parameters == 0)
@@ -281,12 +281,14 @@ void runalltests_vmtree(memory_t* storageInfo)
             *((int32_t*) (recordBuffer+4)) = v;             
             // printf("Num: %lu KEY: %lu\n", i, v);
 
-           // if (i >= 2812)
+            /*
+            if (i == 1000)
             {
                 // printf("Num: %lu KEY: %lu\n", i, v);
-              //  vmtreePrint(state);   
-       //         vmtreePrintMappings(state);
+                vmtreePrint(state);   
+            //    vmtreePrintMappings(state);
             }
+            */
 
             if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + 4)) == -1)
             {    
@@ -299,9 +301,9 @@ void runalltests_vmtree(memory_t* storageInfo)
             int32_t errors = 0;
             /*
             if (i != 1 && (i-1) % 64 == 0)
-            {
+            {                
                 int32_t errors = checkValues(state, recordBuffer, rnd.size, i-1, r);
-            // int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+                
                 if (errors > 0)
                 {
                     printf("ERRORS: %d Num: %d\n", errors, i);
@@ -310,14 +312,7 @@ void runalltests_vmtree(memory_t* storageInfo)
                     return;
                 }
             }
-            */        
-            if (errors > 0)
-            {
-                printf("ERRORS: %d Num: %d\n", errors, i);
-                vmtreePrint(state);   
-                vmtreePrintMappings(state);
-                return;
-            }
+            */     
              
             if (i % stepSize == 0)
             {           

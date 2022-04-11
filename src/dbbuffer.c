@@ -324,7 +324,7 @@ int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
 	id_t startErase, endErase;
 	id_t parentId = 0;		/* TODO: Not currently used */
 	void *parentBuffer;		/* TODO: Not currently used */
-	int32_t pageIdToMove[8];		/* TODO: Should be size of erase size */			
+	int32_t pageIdToMove[state->eraseSizeInPages];					
 	uint8_t numMove;	
 	id_t totalPagesLookedAt = 0;
 

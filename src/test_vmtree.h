@@ -193,7 +193,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         }
         buffer->pageSize = 512;
         buffer->numPages = M;
-        buffer->eraseSizeInPages = 16; // 4
+        buffer->eraseSizeInPages = 8;
         buffer->status = (id_t*) malloc(sizeof(id_t)*M);
         if (buffer->status == NULL)
         {   printf("Failed to allocate buffer status array.\n");

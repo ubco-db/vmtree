@@ -2378,7 +2378,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		key = ptr;
 		data = ptr+state->keySize;
 		// printf("Writing buffer record: %lu\n", (*(id_t*) ptr));		
-		//if (mustSearch == 1)
+		// if (mustSearch == 1)
 		// 	vmtreePrint(state);			// Note: Printing tree is only possible when mustSearch is true as print may replace buffers that are not written to storage yet		
 
 		if (mustSearch == 1)
@@ -2816,16 +2816,16 @@ donerec:
 @return		Return 0 if success. Non-zero value if error.
 */
 int8_t vmtreePut(vmtreeState *state, void* key, void *data)
-{
-	/* Check for capacity. */	
-	if (!dbbufferEnsureSpace(state->buffer, 32))  // NOTE: This is affected by number of log records if ensuring capacity before processing batch. Effects NOR_OVERWRITE.	
-	{
-		printf("Storage is at capacity. Must delete keys.\n");
-		return -1;
-	}			
-
+{	
 	if (state->logBuffer != NULL)
 	{
+		/* Check for capacity. */	
+		if (!dbbufferEnsureSpace(state->buffer, state->maxLogRecords*2))  // NOTE: This is affected by number of log records if ensuring capacity before processing batch. Effects NOR_OVERWRITE.	
+		{
+			printf("Storage is at capacity. Must delete keys.\n");
+			return -1;
+		}			
+
 		void *ptr;
 		/* Buffer insert in log buffer until full */
 		if (state->numLogRecords >= state->maxLogRecords)
@@ -2849,6 +2849,13 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 		state->numLogRecords++;
 		return 0;		
 	}
+
+	/* Check for capacity. */	
+	if (!dbbufferEnsureSpace(state->buffer, 8))
+	{
+		printf("Storage is at capacity. Must delete keys.\n");
+		return -1;
+	}	
 
 	if (state->parameters == NOR_OVERWRITE)
 		return vmtreePutNorOverwrite(state, key, data);

@@ -150,7 +150,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         rnd.prime = 0;        
 
         /* Configure file storage */      
-        /*       
+        /*   
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
@@ -246,8 +246,8 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->movePage = vmtreeMovePage;
         buffer->checkMapping = vmtreeCheckMappingSpace;
 
-        state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
-        // state->parameters = 0;
+        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
+        state->parameters = 0;
         // state->parameters = OVERWRITE;
 
         if (state->parameters == 0)
@@ -419,7 +419,8 @@ void runalltests_vmtree(memory_t* storageInfo)
         free(state->tempKey);
         free(state->tempData);
         free(recordBuffer);
-
+        free(state->logBuffer);
+        free(state->buffer->blockBuffer);
         free(buffer->status);
         free(state->buffer->buffer);
         free(buffer);

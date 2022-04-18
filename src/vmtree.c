@@ -95,7 +95,7 @@ void vmtreeInit(vmtreeState *state)
 	state->compareKey = uint32Compare;
 
 	/* Calculate block header size */
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 	{
 		/* Header size fixed: 10 bytes: 4 byte id, 4 byte prev index, 2 for record count. */	
 		state->headerSize = 10;
@@ -109,7 +109,7 @@ void vmtreeInit(vmtreeState *state)
 		printf("Max records per page: %d Interior: %d\n", state->maxRecordsPerPage, state->maxInteriorRecordsPerPage);
 	}
 	else
-	{	/* NOR OVERWRITE has different page structure to allow in-page overwrites. Keys are NOT sorted. */
+	{	/* OVERWRITE has different page structure to allow in-page overwrites. Keys are NOT sorted. */
 		/* Header size fixed: 10 bytes: 4 byte id, 4 byte prev index, 2 for record count, +1 minimum for each bitmap. */	
 		state->headerSize = 12;
 
@@ -159,7 +159,7 @@ void vmtreeInit(vmtreeState *state)
 	/* Create and write empty root node */
 	void *buf = initBufferPage(state->buffer, 0);
 	VMTREE_SET_ROOT(buf);
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 		VMTREE_SET_COUNT(buf, 0);		
 	state->activePath[0] = writePage(state->buffer, buf);		/* Store root location */		
 }
@@ -173,7 +173,7 @@ void vmtreeInit(vmtreeState *state)
 */
 void* vmtreeGetMinKey(vmtreeState *state, void *buffer)
 {
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 		return (void*) (buffer+state->headerSize);
 	else
 	{	/* Must search through all values to find minimum key as not sorted. */
@@ -194,7 +194,7 @@ void* vmtreeGetMinKey(vmtreeState *state, void *buffer)
 */
 void* vmtreeGetMaxKey(vmtreeState *state, void *buffer)
 {
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 	{
 		int16_t count =  VMTREE_GET_COUNT(buffer); 
 		if (count == 0)
@@ -362,7 +362,7 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 {
 	uint32_t key, val;	
 
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 	{	
 		int16_t c, count =  VMTREE_GET_COUNT(buffer); 
 		if (VMTREE_IS_INTERIOR(buffer) && state->levels != 1)
@@ -550,7 +550,7 @@ void vmtreePrintNode(vmtreeState *state, int pageNum, int depth)
 	vmtreePrintNodeBuffer(state, pageNum, depth, buf);
 	if (VMTREE_IS_INTERIOR(buf) && state->levels != 1)
 	{				
-		if (state->parameters == NOR_OVERWRITE)
+		if (state->parameters == OVERWRITE)
 		{	
 			unsigned char* bm1 = buf + state->interiorHeaderSize - state->interiorBitmapSize*2;
 			unsigned char* bm2 = buf + state->interiorHeaderSize - state->interiorBitmapSize;
@@ -2016,7 +2016,7 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 		VMTREE_INC_COUNT(buf);	
 
 		/* Write updated page */		
-		if (state->parameters != OVERWRITE)
+		if (state->parameters == VMTREE)
 		{
 			// Invalidate page
 			dbbufferSetFree(state->buffer, nextId);
@@ -2175,7 +2175,7 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 			/* Set previous id in page if does not have one currently */
 			prevId = vmtreeUpdatePrev(state, buf, parent);				
 			
-			if (state->parameters != OVERWRITE)
+			if (state->parameters == VMTREE)
 			{
 				pageNum = writePage(state->buffer, buf);							
 
@@ -2828,7 +2828,7 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 			}		
 
 			/* Log buffer is full. Sort it then empty it. */			
-			if (state->parameters == NOR_OVERWRITE)
+			if (state->parameters == OVERWRITE)
 			{				
 				 vmtreePutNorOverwriteBatch(state);
 			}
@@ -2854,7 +2854,7 @@ int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 		return -1;
 	}	
 
-	if (state->parameters == NOR_OVERWRITE)
+	if (state->parameters == OVERWRITE)
 		return vmtreePutNorOverwrite(state, key, data);
 
 	return vmtreePutRecord(state, key, data);
@@ -2948,7 +2948,7 @@ int32_t vmtreeSearchNodeOverwrite(vmtreeState *state, void *buffer, void* key, i
 */
 int32_t vmtreeSearchNode(vmtreeState *state, void *buffer, void* key, id_t pageId, int8_t range)
 {
-	if (state->parameters == NOR_OVERWRITE)
+	if (state->parameters == OVERWRITE)
 		return vmtreeSearchNodeOverwrite(state, buffer, key, pageId, range);
 
 	int16_t first, last, middle, count;
@@ -3044,7 +3044,7 @@ id_t getChildPageId(vmtreeState *state, void *buf, id_t pageId, int8_t level, id
 	/* Retrieve page number for child */
 	id_t nextId;
 	memcpy(&nextId, (id_t*) (buf + state->interiorHeaderSize + state->keySize*state->maxInteriorRecordsPerPage + sizeof(id_t)*childNum), sizeof(id_t));
-	if (state->parameters != NOR_OVERWRITE)
+	if (state->parameters != OVERWRITE)
 	{
 		// if (nextId == 0 && childNum==(VMTREE_GET_COUNT(buf)))	/* Last child which is empty */
 		if (childNum > (VMTREE_GET_COUNT(buf)))	/* Last child which is empty */
@@ -3094,7 +3094,7 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 
 	if (nextId != -1)
 	{	/* Key found */
-		if (state->parameters != NOR_OVERWRITE)
+		if (state->parameters != OVERWRITE)
 			memcpy(data, (void*) (buf+state->headerSize+state->recordSize*nextId+state->keySize), state->dataSize);
 		else
 			memcpy(data, (void*) (buf+state->headerSize+state->dataSize*nextId+state->keySize*state->maxRecordsPerPage), state->dataSize);
@@ -3112,7 +3112,7 @@ int8_t vmtreeFlush(vmtreeState *state)
 {	
 	if (state->logBuffer != NULL)
 	{			
-		if (state->parameters == NOR_OVERWRITE)
+		if (state->parameters == OVERWRITE)
 		{				
 			vmtreePutNorOverwriteBatch(state);
 		}

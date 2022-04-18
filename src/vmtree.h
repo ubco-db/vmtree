@@ -82,13 +82,15 @@ typedef uint16_t count_t;
 
 #define EMPTY_MAPPING			200000000
 
-/* OVERWRITE is full overwrite with no byte restrictions. i.e. SD card file */
-/* OVERWRITE will use same sorted page structure */
-#define OVERWRITE				1
+/* VMTREE implements virtual mappings and sequential writes to avoid update-in-place. */
+#define VMTREE					0
 
-/* NOR_OVERWRITE is for NOR memory that supports overwriting a page but only converting 1s to 0s. */
-/* NOR_OVERWRITE has different page structure to avoid changing bytes already written. Records not in sorted order. */
-#define NOR_OVERWRITE			2
+/* BTREE implements update-in-place semantics that requires a file level interface with a FTL (i.e. SD card file) */
+#define BTREE					1
+
+/* OVERWRITE is for NOR memory that supports overwriting a page but only converting 1s to 0s. */
+/* OVERWRITE has different page structure to avoid changing bytes already written. Records not in sorted order. */
+#define OVERWRITE				2
 
 typedef struct {
 	id_t prevPage;								/* Previous page index */

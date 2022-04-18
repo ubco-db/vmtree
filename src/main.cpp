@@ -2,8 +2,8 @@
 /**
 @file		    main.cpp
 @author		  Ramon Lawrence, Scott Fazackerley
-@brief		  Main Arduino program for testing VMtree on custom hardware.
-@copyright	Copyright 2021
+@brief		  Main program for testing VMtree on custom hardware.
+@copyright	Copyright 2022
 			      The University of British Columbia,
             Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without

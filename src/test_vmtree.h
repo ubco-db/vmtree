@@ -274,8 +274,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->activePath = state->activePath;
         buffer->state = state;
         buffer->isValid = vmtreeIsValid;
-        buffer->movePage = vmtreeMovePage;
-        buffer->checkMapping = vmtreeCheckMappingSpace;
+        buffer->movePage = vmtreeMovePage;        
 
         // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
         state->parameters = 0;

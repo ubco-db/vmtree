@@ -241,40 +241,6 @@ int16_t vmtreeGetMappingIndex(vmtreeState *state, id_t pageId)
 }
 
 /**
-@brief     	Returns 1 if there is space to add mapping with given pageId, 0 otherwise.
-@param     	state
-                VMTree algorithm state structure
-@param		pageId
-				physical page index
-*/
-int8_t vmtreeCheckMappingSpace(void *statePtr, id_t pageId)
-{		
-	vmtreeState *state = (vmtreeState*) statePtr;
-	if (state->numMappings == 0)
-		return 1;
-
-	// Code for fixed sized hash
-	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;	
-	int16_t loc = pageId % state->maxMappings;
-	int8_t i=0;
-
-	while (1)
-	{	
-		state->numMappingCompare++;
-		if (mappings[loc].prevPage == EMPTY_MAPPING)
-			return 1;	 	
-
-		i++;
-		if (i >= state->maxTries)
-			break;
-		loc += 7;
-		loc = loc % state->maxMappings;	
-	}
-	
-	return 0;
-}
-
-/**
 @brief     	Adds a page mapping.
 @param     	state
                 VMTree algorithm state structure

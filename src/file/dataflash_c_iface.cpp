@@ -64,14 +64,6 @@ void init_df(void *df)
 int32_t dfread(int32_t pagenum, void *ptr, int32_t size)
 {
 	df_main_memory_read(dflash, pagenum, 0, (uint8_t*) ptr, size);
-	/*
-	df_MM_to_buffer_2(dflash, pagenum);
-    while (DATAFLASH_BUSY == get_ready_status(dflash))
-    {
-    };
-    
-    df_buffer_2_read(dflash, 0, (uint8_t*) ptr, size);
-	*/
 	return size;
 }
 

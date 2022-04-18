@@ -307,15 +307,6 @@ int8_t vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf);
 id_t vmtreeGetMapping(vmtreeState *state, id_t pageId);
 
 /**
-@brief     	Returns 1 if there is space to add mapping with given pageId, 0 otherwise.
-@param     	state
-                VMTree algorithm state structure
-@param		pageId
-				physical page index
-*/
-int8_t vmtreeCheckMappingSpace(void *state, id_t pageId);
-
-/**
 @brief     	Deletes a page mapping.
 @param     	state
                 VMTree algorithm state structure

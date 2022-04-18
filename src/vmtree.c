@@ -402,7 +402,7 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 		if (VMTREE_IS_INTERIOR(buffer) && state->levels != 1)
 		{	
 			printSpaces(depth*3);
-			printf("Id: %d Loc: %d Prev: %d Cnt: %d [%d, %d]\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, (VMTREE_IS_ROOT(buffer)), VMTREE_IS_INTERIOR(buffer));		
+			printf("Id: %d Loc: %d Prev: %d Cnt: %d [%u, %u]\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, (VMTREE_IS_ROOT(buffer)), VMTREE_IS_INTERIOR(buffer));		
 			/* Print data records (optional) */	
 			printSpaces(depth*3);
 					
@@ -410,19 +410,21 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 			{			
 				memcpy(&key, (int32_t*) (buffer+state->keySize * c + state->headerSize), sizeof(int32_t));
 				memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->headerSize + c*sizeof(id_t)), sizeof(int32_t));
-				id_t mapVal = vmtreeGetMapping(state, val);			
-				printf(" (%d, %d", key, val);			
-				if (mapVal != val)
-					printf(" [%d]", mapVal);	
-				printf(")");
+				if (state->keySize == 8)
+				{
+					int32_t key2 = *((int32_t*) (buffer + state->headerSize + state->recordSize * c + 4));
+					printf("Key: %u - %u Value: %d\n", key, key2, val);			
+				}
+				else
+					printf("Key: %u Value: %u\n", key, val);			
 			}
 			
 			/* Print last pointer */
 			memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->headerSize + c*sizeof(id_t)), sizeof(uint32_t));
 			id_t mapVal = vmtreeGetMapping(state, val);	
-			printf(" (, %d", val);
+			printf(" (, %u", val);
 			if (mapVal != val)
-				printf(" [%d]", mapVal);
+				printf(" [%u]", mapVal);
 			printf(")\n");
 		}
 		else
@@ -440,7 +442,10 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 				memcpy(&key, (int32_t*) (buffer + state->headerSize + state->recordSize * c), sizeof(int32_t));
 				memcpy(&val, (int32_t*) (buffer + state->headerSize + state->recordSize * c + state->keySize), sizeof(int32_t));
 				printSpaces(depth*3+2);
-				printf("Key: %lu Value: %lu\n",key, val);									
+				if (state->keySize == 8)
+					printf(" (%u - %u, %u)", *((uint32_t*) key), *((uint32_t*) (key+4)), val);																	
+				else					
+					printf(" (%u, %u)", key, val);																										
 			}	
 			*/			
 		}
@@ -481,35 +486,50 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 		}
 		else
 		{		
+			void *key, *val;
 			unsigned char* bm1 = buffer + state->headerSize - state->bitmapSize*2;
 			unsigned char* bm2 = buffer + state->headerSize - state->bitmapSize;
 
-			int32_t minKey = INT32_MAX, maxKey = 0;	
-			bitarrPrint(bm1, state->bitmapSize);
-			bitarrPrint(bm2, state->bitmapSize);		
+			void *minKey = malloc(state->keySize), *maxKey = malloc(state->keySize);
+
+			uint8_t first = 1;		
+
 			for (c=0; c < state->bitmapSize*8 && c < state->maxRecordsPerPage; c++)
 			{	/* Must be non-free location (0) and still valid (1) */
 				if (bitarrGet(bm1, c) == 0 && bitarrGet(bm2, c) == 1)
 				{	/* Found valid record. */					
-					
-					memcpy(&key, (int32_t*) (buffer+state->keySize * c + state->headerSize), sizeof(int32_t));
-					// int32_t val = *((int32_t*) (buffer+state->keySize * state->maxRecordsPerPage + state->headerSize + c*state->dataSize));
+					key = (void*) (buffer+state->keySize * c + state->headerSize);
+					val = (void*) (buffer+state->keySize * state->maxRecordsPerPage + state->headerSize + c*state->dataSize);
 				
-					if (key < minKey)
-						minKey = key;
-					if (key > maxKey)
-						maxKey = key;
-					// printf("%*cKey: %d Value: %d\n", depth*3+2, ' ', key, val);	
+					if (first)
+					{
+						memcpy(minKey, key, state->keySize);
+						memcpy(maxKey, key, state->keySize);
+					}
+					else
+					{
+						if (state->compareKey(key, minKey) < 0)
+							memcpy(minKey, key, state->keySize);
+						if (state->compareKey(key, maxKey) > 0)
+							memcpy(maxKey, key, state->keySize);						
+					}
+					first = 0;
+				
 					count++;	
 				}
-			}	
+			}		
 
 			/* Print summary if do not print all records */		
 			printSpaces(depth*3);
-			printf("Id: %d Loc: %d Prev: %d Cnt: %d (%d, %d)\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, minKey, maxKey);	
+			if (state->keySize == 8)
+				printf("Id: %d Loc: %d Prev: %d Cnt: %d (%d - %d, %d - %d)\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, *((uint32_t*) minKey), *((uint32_t*) (minKey+4)), *((uint32_t*) maxKey), *((uint32_t*) (maxKey+4)));	
+			else
+				printf("Id: %d Loc: %d Prev: %d Cnt: %d (%d, %d)\n", VMTREE_GET_ID(buffer), pageNum, VMTREE_GET_PREV(buffer), count, *((uint32_t*) minKey), *((uint32_t*) maxKey));	
+
+			free(minKey);
+			free(maxKey);
 
 			/* Print all individual records (optional) */
-			/*
 			for (c=0; c < state->bitmapSize*8 && c < state->maxRecordsPerPage; c++)
 			{	// Must be non-free location (0) and still valid (1)
 				if (bitarrGet(bm1, c) == 0 && bitarrGet(bm2, c) == 1)
@@ -517,11 +537,20 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 					memcpy(&key, (int32_t*) (buffer + state->headerSize + state->keySize * c), sizeof(int32_t));
 					memcpy(&val, (int32_t*) (buffer + state->headerSize + state->maxRecordsPerPage*state->keySize + c * state->dataSize), sizeof(int32_t));
 					printSpaces(depth*3+2);
-					printf(" (%d, %u)", key, val);									
+					/*							
+					if (state->keySize == 8)											
+						printf("Key: %u - %u ", depth*3+2, ' ', *((uint32_t*) key), *((uint32_t*) (key+4)), val);								
+					else
+						printf("Key: %u ", depth*3+2, ' ', key);	
+
+					if (state->dataSize > 0)
+						printf(" Value: %u\n", *((uint32_t*) val));
+					else
+						printf("\n");	
+					*/									
 				}
 			}		
-			printf("\n");
-			*/		
+			printf("\n");					
 		}
 	}
 }
@@ -1095,11 +1124,13 @@ void vmtreeInsertInteriorSorted(vmtreeState* state, void *buf, int16_t count, vo
 }
 
 /**
-@brief     	Sets the first count bits to be occupied with valid records. Resets all other bits.			
+@brief     	Sets given count bit to be occupied.			
 @param     	state
                 VMTree algorithm state structure
 @param     	buf
                 buffer containing block to sort
+@param		loc
+				Bit location to set
 @return		Return count of valid records in block.
 */
 void vmtreeSetCountBitInterior(vmtreeState* state, void *buf, int16_t loc)
@@ -1215,14 +1246,7 @@ void vmtreeResetBlockInterior(vmtreeState* state, void *buf, int16_t count)
 @return		Return 0 if success. Non-zero value if error.
 */
 int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
-{
-	/* Check for capacity. */	
-	if (!dbbufferEnsureSpace(state->buffer, 8))	
-	{
-		printf("Storage is at capacity. Must delete keys.\n");
-		return -1;
-	}			
-
+{	
 	/* Find insert leaf */
 	/* Starting at root search for key */
 	int8_t 	l;
@@ -1251,6 +1275,12 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 
 	/* Read the leaf node */	
 	buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: May want to use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+	if (buf == NULL)
+	{
+		vmtreePrint(state);
+		printf("ERROR reading page: %d\n", nextId);
+		return -1;
+	}
 	int16_t count;
 
 	/* Append key/data record to first open space in node */
@@ -1432,8 +1462,8 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 			/* TODO: Using tempData here as already using tempKey. This would be a problem if data size is < key size. */
 			memcpy(state->tempData, buf + state->interiorHeaderSize + state->keySize * (mid), state->keySize);
 
-			/* TODO: Also buffering next key after mid point as lose it during shift down. Figure out a better way and do not hardcode key type. */
-			id_t tempKeyAfterMid;
+			/* Also buffering next key after mid point as lose it during shift down. */
+			void* tempKeyAfterMid = state->tempKey2;
 			memcpy(&tempKeyAfterMid, buf + state->interiorHeaderSize + state->keySize * (mid+1), state->keySize);
 			id_t tempPtr;
 			memcpy(&tempPtr, buf + state->interiorHeaderSize + state->keySize * state->maxInteriorRecordsPerPage + sizeof(id_t) * (mid+1), sizeof(id_t));
@@ -1535,6 +1565,7 @@ int8_t vmtreePutNorOverwrite(vmtreeState *state, void* key, void *data)
 	buf = initBufferPage(state->buffer, 0);		
 	vmtreeSetCountBitInterior(state, buf, 0);
 	vmtreeSetCountBitInterior(state, buf, 1);
+	
 	VMTREE_SET_ROOT_NOR(buf);		
 	VMTREE_SET_PREV(buf, PREV_ID_CONSTANT);		/* TODO: Determine if need to set previous pointer to state->activePath[0] (previous root). */
 	state->numNodes++;
@@ -2818,18 +2849,18 @@ donerec:
 int8_t vmtreePut(vmtreeState *state, void* key, void *data)
 {	
 	if (state->logBuffer != NULL)
-	{
-		/* Check for capacity. */	
-		if (!dbbufferEnsureSpace(state->buffer, state->maxLogRecords*2))  // NOTE: This is affected by number of log records if ensuring capacity before processing batch. Effects NOR_OVERWRITE.	
-		{
-			printf("Storage is at capacity. Must delete keys.\n");
-			return -1;
-		}			
-
+	{			
 		void *ptr;
 		/* Buffer insert in log buffer until full */
 		if (state->numLogRecords >= state->maxLogRecords)
 		{			
+			/* Check for capacity. */	
+			if (!dbbufferEnsureSpace(state->buffer, state->maxLogRecords*2))  // NOTE: This is affected by number of log records if ensuring capacity before processing batch. Effects NOR_OVERWRITE.	
+			{
+				printf("Storage is at capacity. Must delete keys.\n");
+				return -1;
+			}		
+
 			/* Log buffer is full. Sort it then empty it. */			
 			if (state->parameters == NOR_OVERWRITE)
 			{				
@@ -3117,7 +3148,7 @@ int8_t vmtreeFlush(vmtreeState *state)
 	{			
 		if (state->parameters == NOR_OVERWRITE)
 		{				
-				vmtreePutNorOverwriteBatch(state);
+			vmtreePutNorOverwriteBatch(state);
 		}
 		else
 		{				

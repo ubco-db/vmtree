@@ -112,6 +112,7 @@ typedef struct {
 	id_t 	activePath[MAX_LEVEL];				/* Active path of page indexes from root (in position 0) to node just above leaf */
 	id_t 	nextPageWriteId;					/* Physical page id of next page to write. */
 	void 	*tempKey;							/* Used to temporarily store a key value. Space must be preallocated. */
+	void 	*tempKey2;							/* Used to temporarily store a key value. Space must be preallocated. */
 	void 	*tempData;							/* Used to temporarily store a data value. Space must be preallocated. */
 	dbbuffer *buffer;							/* Pre-allocated memory buffer for use by algorithm */	
 	void*	mappingBuffer;						/* Buffer to store mappings */
@@ -353,6 +354,29 @@ id_t vmtreeUpdatePrev(vmtreeState *state, void *buf, id_t currId);
 @return		Return count of valid records in block.
 */
 void vmtreeSetCountBitsInterior(vmtreeState* state, void *buf, int16_t count);
+
+/**
+@brief     	Compares two values by bytes. 
+@param     	a
+                value 1
+@param     	b
+                value 2
+*/
+static int8_t compareIdx(void *a, void *b)
+{
+    /* First 4 bytes */
+	if (*((uint32_t*)a) > *((uint32_t*)b))
+		return 1;
+	if (*((uint32_t*)a) < *((uint32_t*)b))
+		return -1;
+	
+    /* Second 4 bytes */
+   	if (*((uint32_t*)(a+4)) > *((uint32_t*)(b+4)))
+		return 1;
+	if (*((uint32_t*)(a+4)) < *((uint32_t*)(b+4)))
+		return -1;
+    return 0;	
+}
 
 #if defined(__cplusplus)
 }

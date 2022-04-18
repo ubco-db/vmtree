@@ -503,9 +503,9 @@ void* initBufferPage(dbbuffer *state, int pageNum)
 	/* TODO: May want to initialize to all 1s for certain memory types. */
 	/* NOR_OVERWRITE requires everything initialized to 1. */	
 	void *buf = state->buffer + pageNum * state->pageSize;
-	for (uint16_t i = 0; i < state->pageSize/sizeof(int32_t); i++)
+	for (uint16_t i = 0; i < state->pageSize/sizeof(uint32_t); i++)
     {
-        ((int32_t*) buf)[i] = INT32_MAX;
+        ((uint32_t*) buf)[i] = UINT32_MAX;
     }
 	state->status[pageNum] = 0;		/* Indicate buffer is unassigned to any current page */
 	return buf;			

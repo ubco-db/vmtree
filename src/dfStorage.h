@@ -3,7 +3,7 @@
 @file		dfStorage.h
 @author		Ramon Lawrence
 @brief		Dataflash Memory storage for reading and writing pages of data.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -103,6 +103,7 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 @return		Return 0 if success, -1 if failure.
 */
 int8_t dfStorageErasePages(storageState *storage, id_t startPage, id_t endPage);
+
 
 /**
 @brief     	Flush storage and ensure all data is written.

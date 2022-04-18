@@ -397,9 +397,6 @@ finderase:
 	}
 
 	state->numMoves += numMove;
-	
-	// if (numMove > 0)
-	// 	printf("Number pages moved: %d\n", numMove);
 
 	if (numMove >= state->eraseSizeInPages)			
 	{	// Full block. Skip
@@ -411,8 +408,6 @@ finderase:
 			return 0;
 		goto finderase;
 	}
-
-
 
 	/* Erase block */
 	erasePages(state, startErase, endErase);	
@@ -430,7 +425,8 @@ finderase:
 	}
 
 	state->erasedEndPage = endErase;
-	
+	state->numMoves += numMove;
+
 	/* Verify have enough space */
 	return dbbufferEnsureSpace(state, pages);
 }
@@ -445,14 +441,8 @@ finderase:
 */
 int32_t writePage(dbbuffer *state, void* buffer)
 {    	
-	/* Always writes to next page number. Returned to user. */	
-	int32_t pageNum = dbbufferNextValidPage(state);
-
-	/* Setup page number in header */	
-	memcpy(buffer, &(state->nextPageId), sizeof(id_t));
-	state->nextPageId++;
-	
-	return writePageDirect(state, buffer, pageNum);		
+	int32_t pageNum = dbbufferNextValidPage(state);				
+	return writePageDirect(state, buffer, pageNum);	
 }
 
 /**
@@ -499,8 +489,7 @@ int32_t overWritePage(dbbuffer *state, void* buffer, int32_t pageNum)
 */
 void* initBufferPage(dbbuffer *state, int pageNum)
 {	
-	/* Insure all values are 1 in page. */
-	/* TODO: May want to initialize to all 1s for certain memory types. */
+	/* Insure all values are 1 in page. */	
 	/* NOR_OVERWRITE requires everything initialized to 1. */	
 	void *buf = state->buffer + pageNum * state->pageSize;
 	for (uint16_t i = 0; i < state->pageSize/sizeof(uint32_t); i++)
@@ -561,8 +550,7 @@ void dbbufferClearStats(dbbuffer *state)
 */
 void dbbufferSetFree(dbbuffer *state, id_t pageNum)
 {	
-	bitarrSet(state->freePages, pageNum, 1);
-	//state->freePages[pageNum] = 1;
+	bitarrSet(state->freePages, pageNum, 1);	
 	// printf("Freed page: %d\n", pageNum);
 }
 
@@ -575,8 +563,7 @@ void dbbufferSetFree(dbbuffer *state, id_t pageNum)
 */
 void dbbufferSetValid(dbbuffer *state, id_t pageNum)
 {
-	bitarrSet(state->freePages, pageNum, 0);
-	// state->freePages[pageNum] = 0;
+	bitarrSet(state->freePages, pageNum, 0);	
 	// printf("Valid page: %d\n", pageNum);
 }
 
@@ -588,7 +575,6 @@ void dbbufferSetValid(dbbuffer *state, id_t pageNum)
 				Physical index of page				
 */
 int8_t dbbufferIsFree(dbbuffer *state, id_t pageNum)
-{
-	// return state->freePages[pageNum];
+{	
 	return bitarrGet(state->freePages, pageNum);
 }

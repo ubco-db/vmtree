@@ -3,7 +3,7 @@
 @file		dfStorage.c
 @author		Ramon Lawrence
 @brief		Dataflash memory storage implementation for reading and writing pages of data.
-@copyright	Copyright 2021
+@copyright	Copyright 2022
 			The University of British Columbia,
 			Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without

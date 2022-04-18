@@ -42,12 +42,45 @@
 
 typedef unsigned char* bitarr;
 
+/**
+@brief     	Initializes bit vector to given size.
+@param     	vector
+                Bit vector pointer
+@param		size
+				Size of bit vector
+@param		value
+				Initialize vector to either 0 or 1.
+*/
 void bitarrInit(bitarr* vector, uint32_t size, uint8_t value);
 
+/**
+@brief     	Sets given bit in bit vector.
+@param     	vector
+                Bit vector pointer
+@param		pos
+				Location in bit vector indexed from 0.
+@param		value
+				Either 0 or 1.
+*/
 void bitarrSet(bitarr vector, uint32_t pos, uint8_t value);
 
+/**
+@brief     	Gets given bit in bit vector.
+@param     	vector
+                Bit vector pointer
+@param		pos
+				Location in bit vector indexed from 0.
+@return		Bit value either 0 or 1.
+*/
 uint8_t bitarrGet(bitarr vector, uint32_t pos);
 
+/**
+@brief     Prints bit vector contents.
+@param     	vector
+                Bit vector pointer
+@param		size
+				Size of bit vector
+*/
 void bitarrPrint(bitarr vector, uint32_t size);
 
 #endif

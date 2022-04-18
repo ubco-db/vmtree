@@ -39,6 +39,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
+/**
+@brief     	Initializes bit vector to given size.
+@param     	vector
+                Bit vector pointer
+@param		size
+				Size of bit vector
+@param		value
+				Initialize vector to either 0 or 1.
+*/
 void bitarrInit(bitarr* vector, uint32_t size, uint8_t value)
 {
 	uint32_t count = ceil(size / BV_UNIT_SIZE);
@@ -50,6 +60,15 @@ void bitarrInit(bitarr* vector, uint32_t size, uint8_t value)
 		(*vector)[i] = value;
 }
 
+/**
+@brief     	Sets given bit in bit vector.
+@param     	vector
+                Bit vector pointer
+@param		pos
+				Location in bit vector indexed from 0.
+@param		value
+				Either 0 or 1.
+*/
 void bitarrSet(bitarr vector, uint32_t pos, uint8_t value)
 {	
 	if (value) 
@@ -58,11 +77,26 @@ void bitarrSet(bitarr vector, uint32_t pos, uint8_t value)
       	vector[pos / BV_UNIT_SIZE] &= ~(1 << (pos % BV_UNIT_SIZE));   
 }
 
+/**
+@brief     	Gets given bit in bit vector.
+@param     	vector
+                Bit vector pointer
+@param		pos
+				Location in bit vector indexed from 0.
+@return		Bit value either 0 or 1.
+*/
 uint8_t bitarrGet(bitarr vector, uint32_t pos)
 {
 	return (vector[pos / BV_UNIT_SIZE] & (1 << (pos % BV_UNIT_SIZE))) > 0 ? 1 : 0;
 }
 
+/**
+@brief     Prints bit vector contents.
+@param     	vector
+                Bit vector pointer
+@param		size
+				Size of bit vector
+*/
 void bitarrPrint(bitarr vector, uint32_t size)
 {
 	for (int i=0; i < size; i++)

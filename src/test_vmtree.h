@@ -276,16 +276,17 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->isValid = vmtreeIsValid;
         buffer->movePage = vmtreeMovePage;        
 
-        // state->parameters = NOR_OVERWRITE;      /* TODO: Set to OVERWRITE to enable overwrite, or NOR_OVERWRITE. */
-        state->parameters = 0;
-        // state->parameters = OVERWRITE;
+        // state->parameters = OVERWRITE;      
+        state->parameters = VMTREE;
+        // state->parameters = BTREE;
 
-        if (state->parameters == 0)
-            printf("VMTREE with no overwrite.\n");
+         if (state->parameters == 0)
+            printf("VMTREE with sequential writing.\n");
+        else if (state->parameters == BTREE)
+            printf("BTREE with update-in-place writes.\n");
         else if (state->parameters == OVERWRITE)
-            printf("VMTREE with overwrite.\n");
-        else if (state->parameters == NOR_OVERWRITE)
-            printf("VMTREE with NOR overwrite.\n");
+            printf("VMTREE with memory-supported overwriting.\n");
+
         printf("Storage size: %lu  Memory size: %lu\n", storage->storage.size, M);
 
         /* Initialize VMTree structure with parameters */

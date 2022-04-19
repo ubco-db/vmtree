@@ -37,7 +37,8 @@
 #include <string.h>
 
 #include "vmtree.h"
-#include "randomseq.h"
+#include "testIterators/randomIterator.h"
+#include "testIterators/fileIterator.h"
 #include "fileStorage.h"
 #include "dfStorage.h"
 // #include "memStorage.h"
@@ -118,15 +119,13 @@ int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int
 }
 
 /**
- * Runs all tests and collects benchmarks
+ * Runs test with given parameters.
  */ 
-void runalltests_vmtree(memory_t* storageInfo)
+void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
 {    
-    printf("\nSTARTING VMTREE INDEX TESTS.\n");
-
-    uint32_t stepSize = 100, numSteps = 10;
-    int32_t numRecords = 10000;
-    count_t r, numRuns = 3, l;
+    uint32_t stepSize, numSteps = 10;
+    int32_t numRecords = it->size;
+    count_t r, l;
     uint32_t times[numSteps][numRuns];
     uint32_t reads[numSteps][numRuns];
     uint32_t writes[numSteps][numRuns];
@@ -134,26 +133,10 @@ void runalltests_vmtree(memory_t* storageInfo)
     uint32_t hits[numSteps][numRuns];    
     uint32_t rtimes[numSteps][numRuns];
     uint32_t rreads[numSteps][numRuns];
-    uint32_t rhits[numSteps][numRuns];
+    uint32_t rhits[numSteps][numRuns];       
+    id_t recid;
 
-    int8_t M = 3, logBufferPages = 2;    
-    int8_t  rnddata = 0;
-    SD_FILE    *infile;
-
-    if (!rnddata)
-    {   /* Open file to read input records */
-    
-        infile = fopen("data/sea100K.bin", "r+b"); 
-        numRecords = 10000;   
-                
-        /*
-        infile = fopen("data/uwa500K.bin", "r+b");
-        minRange = 946713600;
-        maxRange = 977144040;
-        numRecords = 500000;
-        */
-        stepSize = numRecords / numSteps;
-    }
+    stepSize = numRecords / numSteps;
 
     for (r=0; r < numRuns; r++)
     {
@@ -161,11 +144,9 @@ void runalltests_vmtree(memory_t* storageInfo)
         uint32_t i;
 
         srand(r);
-        randomseqState rnd;
-        rnd.size = numRecords;
-        stepSize = rnd.size / numSteps;
-        uint32_t n = rnd.size; 
-        rnd.prime = 0;        
+        
+        stepSize = it->size / numSteps;
+        uint32_t n = it->size;          
 
         /* Configure file storage */      
         /*   
@@ -236,18 +217,11 @@ void runalltests_vmtree(memory_t* storageInfo)
         {   printf("Failed to allocate VMtree state struct.\n");
             return;
         }
-        if (!rnddata)
-        {
-            state->recordSize = 8;
-            state->keySize = 8;
-            state->dataSize = 0; 
-        }
-        else
-        {
-            state->recordSize = 16;
-            state->keySize = 4;
-            state->dataSize = 12;       
-        }  
+
+        state->recordSize = recordSize;
+        state->keySize = keySize;
+        state->dataSize = dataSize;
+        
         state->buffer = buffer;
         
         state->tempKey = malloc(state->keySize); 
@@ -276,23 +250,19 @@ void runalltests_vmtree(memory_t* storageInfo)
         buffer->isValid = vmtreeIsValid;
         buffer->movePage = vmtreeMovePage;        
 
-        // state->parameters = OVERWRITE;      
-        state->parameters = VMTREE;
-        // state->parameters = BTREE;
-
+        state->parameters = type;  
+        
          if (state->parameters == 0)
             printf("VMTREE with sequential writing.\n");
         else if (state->parameters == BTREE)
             printf("BTREE with update-in-place writes.\n");
         else if (state->parameters == OVERWRITE)
             printf("VMTREE with memory-supported overwriting.\n");
-
         printf("Storage size: %lu  Memory size: %lu\n", storage->storage.size, M);
 
         /* Initialize VMTree structure with parameters */
         vmtreeInit(state);
-        if (!rnddata)
-            state->compareKey = compareIdx;
+        state->compareKey = compareKey;  
 
         int8_t* recordBuffer = (int8_t*) malloc(state->recordSize);  
         /* Data record is empty. Only need to reset to 0 once as reusing struct. */        
@@ -303,127 +273,49 @@ void runalltests_vmtree(memory_t* storageInfo)
 
         unsigned long start = millis();   
     
-        if (rnddata)
-        { 
-            srand(r);
-            randomseqInit(&rnd);
-                
-            for (i = 1; i <= n ; i++)
-            {                       
-                id_t v = randomseqNext(&rnd);               
-
-                *((int32_t*) recordBuffer) = v;
-                *((int32_t*) (recordBuffer+4)) = v;             
-                // printf("Num: %lu KEY: %lu\n", i, v);
-
-                /*
-                if (i == 1000)
-                {
-                    // printf("Num: %lu KEY: %lu\n", i, v);
-                    vmtreePrint(state);   
-                //    vmtreePrintMappings(state);
-                }
-                */
-
-                if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + 4)) == -1)
-                {    
-                    printf("INSERT ERROR: %lu\n", v);              
-                    vmtreePrint(state);     
-                    vmtreePrintMappings(state);                      
-                    return;
-                }
-                
-                int32_t errors = 0;
-                /*
-                if (i != 1 && (i-1) % 64 == 0)
-                {                
-                    int32_t errors = checkValues(state, recordBuffer, rnd.size, i-1, r);
-                    
-                    if (errors > 0)
-                    {
-                        printf("ERRORS: %d Num: %d\n", errors, i);
-                        vmtreePrint(state);   
-                        vmtreePrintMappings(state);
-                        return;
-                    }
-                }
-                */     
-                
-                if (i % stepSize == 0)
-                {           
-                    printf("Num: %lu KEY: %lu\n", i, v);
-                    // btreePrint(state);               
-                    l = i / stepSize -1;
-                    if (l < numSteps && l >= 0)
-                    {
-                        times[l][r] = millis()-start;
-                        reads[l][r] = state->buffer->numReads;
-                        writes[l][r] = state->buffer->numWrites;
-                        overwrites[l][r] = state->buffer->numOverWrites;
-                        hits[l][r] = state->buffer->bufferHits;                     
-                    }
-                }        
-            }    
-        }
-        else
-        {
-            start = clock();                         
-        
-            /* Read data from a file */
-            char infileBuffer[512];
-            char record[16];
-            int8_t headerSize = 16, recordSize = 16;
-            i = 0;
-            fseek(infile, 0, SEEK_SET);
-
-            while (1)
+        for (i = 1; i <= n ; i++)
+        {                          
+            it->next(it, recordBuffer, (void*) (recordBuffer+state->keySize), &recid);
+            id_t v =*((int32_t*) recordBuffer);
+            /*
+            if (state->keySize == 8)
+                printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) recordBuffer), *((int32_t*) (recordBuffer+4)));
+            else
+                printf("\nNum: %d KEY: %d\n", i, v);          
+            */         
+            if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + state->keySize)) == -1)
+            {  
+                vmtreePrint(state);   
+                vmtreePrintMappings(state);
+                printf("INSERT ERROR: %d\n", v);
+                return;
+            }           
+            /*               
+            int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+            if (errors > 0)
             {
-                /* Read page */
-                if (0 == fread(infileBuffer, buffer->pageSize, 1, infile))
-                    break;
-                        
-                /* Process all records on page */
-                int16_t count = *((int16_t*) (infileBuffer+4));                  
-                for (int j=0; j < count; j++)
-                {	
-                    void *buf = (infileBuffer + headerSize + j*recordSize);				
-                              
-                    /* Insert secondary index record (dataValue, recordNum) into B-tree secondary index */
-			        memcpy(record, (void*) (buf + 4), sizeof(id_t));
-                    memcpy((void*) (record + 4), &i, sizeof(id_t));			                     
-
-                    // printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) record), *((int32_t*) (record+4)));                        
-
-                    if (vmtreePut(state, &record, &record) == -1)
-                    {  
-                        vmtreePrint(state);   
-                        vmtreePrintMappings(state);
-                        printf("INSERT ERROR: %d\n",  *((int32_t*) (recordBuffer+4)));
-                        return;
-                    }                                                                 
-
-                    if (i % stepSize == 0)
-                    {           
-                        printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) record), *((int32_t*) (record+4)));                   
-                        l = i / stepSize -1;
-                        if (l < numSteps && l >= 0)
-                        {
-                            times[l][r] = (clock()-start)*1000/CLOCKS_PER_SEC;
-                            reads[l][r] = state->buffer->numReads;
-                            writes[l][r] = state->buffer->numWrites;
-                            overwrites[l][r] = state->buffer->numOverWrites;                     
-                            hits[l][r] = state->buffer->bufferHits;                       
-                        }
-                    }  
-                    i++;  
-                    if (i == numRecords)
-                        goto doneread;
+                printf("ERRORS: %d Num: %d\n", errors, i);
+                vmtreePrint(state);   
+                vmtreePrintMappings(state);
+                return;
+            }                
+            */                        
+            if (i % stepSize == 0)
+            {           
+                printf("Num: %lu KEY: %lu\n", i, v);
+                // btreePrint(state);               
+                l = i / stepSize -1;
+                if (l < numSteps && l >= 0)
+                {
+                    times[l][r] = millis()-start;
+                    reads[l][r] = state->buffer->numReads;
+                    writes[l][r] = state->buffer->numWrites;
+                    overwrites[l][r] = state->buffer->numOverWrites;
+                    hits[l][r] = state->buffer->bufferHits;                     
                 }
-            }  
-    doneread:
-            numRecords = i;                
+            }        
         }
-    
+       
         /* Call flush to make sure log buffer or any other buffers have been wrote to storage */
         vmtreeFlush(state);
 
@@ -436,6 +328,7 @@ void runalltests_vmtree(memory_t* storageInfo)
         overwrites[l][r] = state->buffer->numOverWrites;
         hits[l][r] = state->buffer->bufferHits;                              
 
+        it->close(it);
         // vmtreePrintMappings(state);
         // vmtreePrint(state);             
         printStats(state->buffer);
@@ -456,94 +349,34 @@ void runalltests_vmtree(memory_t* storageInfo)
         printf("\nVerifying and searching for all values.\n");
         start = millis();
 
-        if (rnddata)
-        {
-            srand(1);
-            randomseqInit(&rnd);
+        /* Verify that can find all values inserted */    
+        for (i = 0; i < n; i++) 
+        {                         
+            it->next(it, recordBuffer, (void*) (recordBuffer+state->keySize), &recid);
+            id_t key =*((int32_t*) recordBuffer);
 
-            /* Verify that can find all values inserted */    
-            for (i = 1; i <= n; i++) 
-            { 
-                int32_t key = randomseqNext(&rnd);
-                int8_t result = vmtreeGet(state, &key, recordBuffer);
-                if (result != 0) 
-                {   errors++;
-                    printf("ERROR: Failed to find: %lu\n", key);
-                    vmtreeGet(state, &key, recordBuffer);
-                }
-                else if (*((int32_t*) recordBuffer) != key)
-                {   printf("ERROR: Wrong data for: %lu\n", key);
-                    printf("Key: %lu Data: %lu\n", key, *((int32_t*) recordBuffer));
-                }
-
-                if (i % stepSize == 0)
-                {                           
-                    // btreePrint(state);               
-                    l = i / stepSize - 1;
-                    if (l < numSteps && l >= 0)
-                    {
-                        rtimes[l][r] = millis()-start;
-                        rreads[l][r] = state->buffer->numReads;                    
-                        rhits[l][r] = state->buffer->bufferHits;                     
-                    }
-                }    
+            int8_t result = vmtreeGet(state, &key, recordBuffer);
+            if (result != 0) 
+            {   errors++;
+                printf("ERROR: Failed to find: %d\n", key);
+                vmtreeGet(state, &key, recordBuffer);
             }
-        }
-        else
-        {
-            /* Read data from a file */
-            char infileBuffer[512];
-            char record[16];
-             int8_t headerSize = 16, recordSize = 16;
-            i = 0;
-            fseek(infile, 0, SEEK_SET);
-
-            while (1)
-            {
-                /* Read page */
-                if (0 == fread(infileBuffer, buffer->pageSize, 1, infile))
-                    break;
-                        
-                /* Process all records on page */
-                int16_t count = *((int16_t*) (infileBuffer+4));                  
-                for (int j=0; j < count; j++)
-                {	
-                    void *buf = (infileBuffer + headerSize + j*recordSize);				
-                              
-                    /* Get secondary index record (dataValue, recordNum) into B-tree secondary index */
-			        memcpy(record, (void*) (buf + 4), sizeof(id_t));
-                    memcpy((void*) (record + 4), &i, sizeof(id_t));			                     
-
-                    // printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) record), *((int32_t*) (record+4)));     
-
-                    int8_t result = vmtreeGet(state, record, recordBuffer);
-                    if (result != 0) 
-                    {   errors++;
-                        printf("ERROR: Failed to find: %d - %d\n", *((int32_t*) record), *((int32_t*) (record+4)));
-                        vmtreePrint(state); 
-                        vmtreeGet(state, record, recordBuffer);
-                    }                           
-
-                    if (i % stepSize == 0)
-                    {           
-                        printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) record), *((int32_t*) (record+4)));       
-                        l = i / stepSize -1;
-                        if (l < numSteps && l >= 0)
-                        {
-                            rtimes[l][r] = (clock()-start)*1000/CLOCKS_PER_SEC;
-                            rreads[l][r] = state->buffer->numReads;                    
-                            rhits[l][r] = state->buffer->bufferHits;                          
-                        }
-                    }  
-                    i++;  
-                     if (i == numRecords)
-                        goto donequery;
+            else if (*((int32_t*) recordBuffer) != key)
+            {   printf("ERROR: Wrong data for: %d\n", key);
+                printf("Key: %d Data: %d\n", key, *((int32_t*) recordBuffer));
+            }
+            if (i % stepSize == 0)
+            {                                     
+                l = i / stepSize - 1;
+                if (l < numSteps && l >= 0)
+                {
+                    rtimes[l][r] = millis()-start;
+                    rreads[l][r] = state->buffer->numReads;                    
+                    rhits[l][r] = state->buffer->bufferHits;                     
                 }
-            }   
-donequery:
-                numRecords = i;     
+            }    
         }
-
+        
         l = numSteps-1;       
         rtimes[l][r] = millis()-start;
         rreads[l][r] = state->buffer->numReads;                    
@@ -563,6 +396,8 @@ donequery:
         /* Optional: Test iterator */
         // testIterator(state, recordBuffer);
         // printStats(buffer);
+
+        it->close(it); 
 
         /* Clean up and free memory */
         closeBuffer(buffer);    
@@ -601,7 +436,6 @@ donequery:
             printf("\t%lu", writes[i-1][r]);
         }
         printf("\t%lu\n", sum/r);
-        
 
         printf("Overwrites: ");
         sum = 0;
@@ -630,7 +464,6 @@ donequery:
         }
         printf("\t%lu\n", sum/r);
         
-
         printf("Write Time: ");
         sum = 0;
         for (r=0 ; r < numRuns; r++)

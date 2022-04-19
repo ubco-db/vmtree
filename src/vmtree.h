@@ -357,18 +357,60 @@ void vmtreeSetCountBitsInterior(vmtreeState* state, void *buf, int16_t count);
 */
 static int8_t compareIdx(void *a, void *b)
 {
+	uint32_t i1, i2;
+    memcpy(&i1, a, sizeof(uint32_t));
+    memcpy(&i2, b, sizeof(uint32_t));
+
     /* First 4 bytes */
-	if (*((uint32_t*)a) > *((uint32_t*)b))
+	if (i1 > i2)
 		return 1;
-	if (*((uint32_t*)a) < *((uint32_t*)b))
-		return -1;
+	if (i1 < i2)
+		return -1;	
 	
     /* Second 4 bytes */
-   	if (*((uint32_t*)(a+4)) > *((uint32_t*)(b+4)))
+	memcpy(&i1, a+4, sizeof(uint32_t));
+    memcpy(&i2, b+4, sizeof(uint32_t));
+
+   	if (i1 > i2)
 		return 1;
-	if (*((uint32_t*)(a+4)) < *((uint32_t*)(b+4)))
+	if (i1 < i2)
 		return -1;
-    return 0;	
+	return 0;	
+}
+
+/*
+Comparison functions. Code is adapted from ldbm.
+*/
+/**
+@brief     	Compares two unsigned int32_t values.
+@param     	a
+                value 1
+@param     	b
+                value 2
+*/
+static int8_t uint32Compare(void *a, void *b)
+{	
+	uint32_t i1, i2;
+    memcpy(&i1, a, sizeof(uint32_t));
+    memcpy(&i2, b, sizeof(uint32_t));
+
+	if (i1 > i2)
+		return 1;
+	if (i1 < i2)
+		return -1;
+	return 0;	
+}
+
+/**
+@brief     	Compares two values by bytes. 
+@param     	a
+                value 1
+@param     	b
+                value 2
+*/
+static int8_t byteCompare(void *a, void *b, int16_t size)
+{
+	return memcmp(a, b, size);	
 }
 
 #if defined(__cplusplus)

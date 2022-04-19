@@ -75,7 +75,7 @@ bool test_sd_card();
 
 recordIteratorState* randomIterator(int32_t numRecords)
 {
-    randomIteratorState* iter = malloc(sizeof(randomIteratorState));
+    randomIteratorState* iter = (randomIteratorState*) malloc(sizeof(randomIteratorState));
     randomIteratorInit((recordIteratorState*) iter);
 
     iter->state.size = numRecords;
@@ -84,12 +84,12 @@ recordIteratorState* randomIterator(int32_t numRecords)
 
 recordIteratorState* fileIterator(int32_t numRecords, char* fileName)
 {                            
-    fileIteratorState* iter = malloc(sizeof(fileIteratorState));      
+    fileIteratorState* iter = (fileIteratorState*) malloc(sizeof(fileIteratorState));      
     iter->filePath = fileName;        
     iter->pageSize = 512;
     iter->recordSize = 16;
     iter->headerSize = 16;        
-    iter->buffer = malloc(iter->pageSize);
+    iter->buffer = (char*) malloc(iter->pageSize);
     fileIteratorInit((recordIteratorState*) iter);
 
     iter->state.size = numRecords;

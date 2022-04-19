@@ -42,42 +42,6 @@
 #include "vmtree.h"
 #include "in_memory_sort.h"
 
-/*
-Comparison functions. Code is adapted from ldbm.
-*/
-/**
-@brief     	Compares two unsigned int32_t values.
-@param     	a
-                value 1
-@param     	b
-                value 2
-*/
-static int8_t uint32Compare(void *a, void *b)
-{	
-	uint32_t i1, i2;
-    memcpy(&i1, a, sizeof(uint32_t));
-    memcpy(&i2, b, sizeof(uint32_t));
-
-	if (i1 > i2)
-		return 1;
-	if (i1 < i2)
-		return -1;
-	return 0;	
-}
-
-/**
-@brief     	Compares two values by bytes. 
-@param     	a
-                value 1
-@param     	b
-                value 2
-*/
-static int8_t byteCompare(void *a, void *b, int16_t size)
-{
-	return memcmp(a, b, size);	
-}
-
-
 /**
 @brief     	Initialize a VMTree structure.
 @param     	state

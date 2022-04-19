@@ -73,6 +73,29 @@ File32 file;
 // Headers
 bool test_sd_card();
 
+recordIteratorState* randomIterator(int32_t numRecords)
+{
+    randomIteratorState* iter = malloc(sizeof(randomIteratorState));
+    randomIteratorInit((recordIteratorState*) iter);
+
+    iter->state.size = numRecords;
+    return (recordIteratorState*) iter;
+}
+
+recordIteratorState* fileIterator(int32_t numRecords, char* fileName)
+{                            
+    fileIteratorState* iter = malloc(sizeof(fileIteratorState));      
+    iter->filePath = fileName;        
+    iter->pageSize = 512;
+    iter->recordSize = 16;
+    iter->headerSize = 16;        
+    iter->buffer = malloc(iter->pageSize);
+    fileIteratorInit((recordIteratorState*) iter);
+
+    iter->state.size = numRecords;
+    return (recordIteratorState*) iter;
+}
+
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -112,6 +135,20 @@ void setup() {
   init_df((void*) &at45db32_m);
   
   runalltests_vmtree(&at45db32_m);
+
+  int16_t M = 3, logBufferPages = 2, numRuns = 3;
+  int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
+
+  recordIteratorState* it = randomIterator(100000);
+
+  runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
+  free(it);
+
+
+  // it = fileIterator(100000, "data/sea100K.bin");
+  // recordIteratorState* it = fileIterator(100000, "data/uwa500K.bin");
+  // runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+  // free(it);
 }
 
 void loop() {

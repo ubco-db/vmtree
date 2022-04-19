@@ -1527,7 +1527,7 @@ int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
 {	
 	int8_t 	l, mustSearch = 1, mustWrite = 1;
 	void 	*buf, *ptr, *key, *data, *nextkey;	
-	id_t  	prevId, parent, nextId = state->activePath[0];	
+	id_t  	parent, nextId = state->activePath[0];	
 	int32_t pageNum, childNum;
 	int16_t count;
 	id_t    bufferedParentKey;

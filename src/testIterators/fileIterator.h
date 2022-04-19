@@ -88,8 +88,8 @@ int8_t fileIteratorNext(recordIteratorState *iter, void *key, void *data, uint32
 		void *loc = (it->buffer + it->headerSize + it->curRec*it->recordSize);				
         
 		/* Secondary index record (dataValue, recordNum) into B-tree secondary index */
-		memcpy(key, (void*) (loc + sizeof(uint32_t)), sizeof(uint32_t));
-		memcpy((void*) (key+4), &(iter->nextRecordId), sizeof(uint32_t));                     
+		memcpy(key, (void*) ((char*) loc + sizeof(uint32_t)), sizeof(uint32_t));
+		memcpy((void*) ((char*) key+4), &(iter->nextRecordId), sizeof(uint32_t));                     
         *recId = iter->nextRecordId;
 		it->curRec++;
 
@@ -139,6 +139,7 @@ int8_t fileIteratorInit(recordIteratorState *iter)
 	it->state.init = fileIteratorInit;
 	it->state.next = fileIteratorNext;
 	it->state.close = fileIteratorClose;	
+	return 0;
 }
 
 #endif

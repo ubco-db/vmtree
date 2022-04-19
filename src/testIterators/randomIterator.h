@@ -100,10 +100,12 @@ int8_t randomIteratorInit(recordIteratorState *iter)
 	it->seqState.size = it->state.size;
 	it->seqState.prime = 0;	
 	randomseqInit(&(it->seqState));  
-
+	
 	it->state.init = randomIteratorInit;
 	it->state.next = randomIteratorNext;
 	it->state.close = randomIteratorClose;	
+
+	return 0;
 }
 
 #endif

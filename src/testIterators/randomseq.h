@@ -34,10 +34,6 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 /******************************************************************************/
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #ifndef RANDOMSEQ_H
 #define RANDOMSEQ_H
 

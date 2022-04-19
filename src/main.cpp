@@ -133,13 +133,11 @@ void setup() {
   cout << "bits per page: " << (unsigned int)at45db32_m.bits_per_page << "\n";
 
   init_df((void*) &at45db32_m);
-  
-  runalltests_vmtree(&at45db32_m);
 
   int16_t M = 3, logBufferPages = 2, numRuns = 3;
   int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
-
-  recordIteratorState* it = randomIterator(100000);
+  
+  recordIteratorState* it = randomIterator(10000);
 
   runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
   free(it);

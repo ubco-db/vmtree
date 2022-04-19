@@ -141,9 +141,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
     for (r=0; r < numRuns; r++)
     {
         uint32_t errors = 0;
-        uint32_t i;
-
-        srand(r);
+        uint32_t i;  
         
         stepSize = it->size / numSteps;
         uint32_t n = it->size;          
@@ -271,6 +269,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             recordBuffer[i + sizeof(int32_t)] = 0;
         }
 
+        srand(r); 
+        it->init(it);
+
         unsigned long start = millis();   
     
         for (i = 1; i <= n ; i++)
@@ -346,6 +347,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         state->numMappingCompare = 0;
         dbbufferClearStats(state->buffer);
 
+        srand(r); 
+        it->init(it);
+
         printf("\nVerifying and searching for all values.\n");
         start = millis();
 
@@ -361,9 +365,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                 printf("ERROR: Failed to find: %d\n", key);
                 vmtreeGet(state, &key, recordBuffer);
             }
-            else if (*((int32_t*) recordBuffer) != key)
+            else if (*((uint32_t*) recordBuffer) != key)
             {   printf("ERROR: Wrong data for: %d\n", key);
-                printf("Key: %d Data: %d\n", key, *((int32_t*) recordBuffer));
+                printf("Key: %d Data: %d\n", key, *((uint32_t*) recordBuffer));
             }
             if (i % stepSize == 0)
             {                                     

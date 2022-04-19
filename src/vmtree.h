@@ -368,8 +368,8 @@ static int8_t compareIdx(void *a, void *b)
 		return -1;	
 	
     /* Second 4 bytes */
-	memcpy(&i1, a+4, sizeof(uint32_t));
-    memcpy(&i2, b+4, sizeof(uint32_t));
+	memcpy(&i1, (void*) ((char*) a+4), sizeof(uint32_t));
+    memcpy(&i2, (void*) ((char*) b+4), sizeof(uint32_t));
 
    	if (i1 > i2)
 		return 1;

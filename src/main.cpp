@@ -85,7 +85,8 @@ recordIteratorState* randomIterator(int32_t numRecords)
 recordIteratorState* fileIterator(int32_t numRecords, char* fileName)
 {                            
     fileIteratorState* iter = (fileIteratorState*) malloc(sizeof(fileIteratorState));      
-    iter->filePath = fileName;        
+    iter->filePath = fileName;  
+    iter->file = NULL;      
     iter->pageSize = 512;
     iter->recordSize = 16;
     iter->headerSize = 16;        
@@ -135,18 +136,18 @@ void setup() {
   init_df((void*) &at45db32_m);
 
   int16_t M = 3, logBufferPages = 2, numRuns = 3;
-  int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
-  
-  recordIteratorState* it = randomIterator(10000);
+  int8_t type = OVERWRITE;   // VMTREE, BTREE, OVERWRITE
+  recordIteratorState* it;
 
-  runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
-  free(it);
-
-
-  // it = fileIterator(100000, "data/sea100K.bin");
-  // recordIteratorState* it = fileIterator(100000, "data/uwa500K.bin");
-  // runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+  // it = randomIterator(10000);
+  // runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
   // free(it);
+
+
+  it = fileIterator(10000, (char*) "sea100K.bin");
+  // recordIteratorState* it = fileIterator(100000, "data/uwa500K.bin");
+  runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+  free(it);
 }
 
 void loop() {

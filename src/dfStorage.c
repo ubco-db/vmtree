@@ -108,7 +108,7 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 	if ( pageNum < 0 || (pageNum+1)*pageSize > mem->size)
 		return -1;		/* Invalid page requested */
 
-	// TODO: Use dfwrite if doing NOR_OVERWRITE. dfwriteErase for all other cases.
+	// TODO: Use dfwrite if doing OVERWRITE or VMTREE. dfwriteErase for BTREE.
 	// printf("Write: %lu\n", pageNum+mem->pageOffset);
 	dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
 	// dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);

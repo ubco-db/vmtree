@@ -41,11 +41,15 @@
 
 #include "recordIterator.h"
 
+#if defined(ARDUINO)
+#include "file/serial_c_iface.h"
+#include "file/sdcard_c_iface.h"
+#endif
 
 typedef struct fileIteratorState 
 {	
 	recordIteratorState 	state;			/* Basic iterator state */
-	FILE*					file;			/* Input file */	
+	SD_FILE*				file;			/* Input file */	
 	char*					buffer;			/* Buffer for one page of data file */	
 	char*					filePath;		/* File name with path for input file */
 	uint16_t				pageSize;		/* Page size of input file */	
@@ -89,7 +93,8 @@ int8_t fileIteratorNext(recordIteratorState *iter, void *key, void *data, uint32
         
 		/* Secondary index record (dataValue, recordNum) into B-tree secondary index */
 		memcpy(key, (void*) ((char*) loc + sizeof(uint32_t)), sizeof(uint32_t));
-		memcpy((void*) ((char*) key+4), &(iter->nextRecordId), sizeof(uint32_t));                     
+		memcpy( (void*) ((char*) key + 4), &(iter->nextRecordId), sizeof(uint32_t));    
+			   
         *recId = iter->nextRecordId;
 		it->curRec++;
 
@@ -108,6 +113,7 @@ void fileIteratorClose(recordIteratorState *iter)
 	fileIteratorState* it = (fileIteratorState*) iter;
 
 	fclose(it->file);
+	it->file = NULL;
 }
 
 /**
@@ -121,11 +127,18 @@ int8_t fileIteratorInit(recordIteratorState *iter)
 	fileIteratorState* it = (fileIteratorState*) iter;
 	
 	it->state.nextRecordId = 0;
-		 
-    it->file = fopen(it->filePath, "r+b"); 
-	if (it->file == NULL) {
-		printf("Error: Can't open file: %s\n", it->filePath);
-		return -1;
+	
+	if (it->file == NULL)
+	{
+		it->file = fopen(it->filePath, "r+b"); 
+		if (it->file == NULL) {
+			printf("Error: Can't open file: %s\n", it->filePath);
+			return -1;
+		}
+	}
+	else
+	{	// File is open. Seek to start of file.	
+		fseek(it->file, 0, SEEK_SET); 
 	}     	
 
 	/* Read and buffer first page */

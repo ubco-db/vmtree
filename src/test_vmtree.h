@@ -147,7 +147,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         uint32_t n = it->size;          
 
         /* Configure file storage */      
-        /*   
+        /*
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
@@ -280,10 +280,10 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             id_t v =*((int32_t*) recordBuffer);
             /*
             if (state->keySize == 8)
-                printf("Num: %d KEY: %d - %d\n", i, *((int32_t*) recordBuffer), *((int32_t*) (recordBuffer+4)));
+                printf("Num: %u KEY: %u - %u\n", i, *((uint32_t*) recordBuffer), *((uint32_t*) (recordBuffer+4)));
             else
-                printf("\nNum: %d KEY: %d\n", i, v);          
-            */         
+                printf("\nNum: %u KEY: %u\n", i, v);          
+            */
             if (vmtreePut(state, recordBuffer, (void*) (recordBuffer + state->keySize)) == -1)
             {  
                 vmtreePrint(state);   
@@ -359,15 +359,18 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             it->next(it, recordBuffer, (void*) (recordBuffer+state->keySize), &recid);
             id_t key =*((int32_t*) recordBuffer);
 
-            int8_t result = vmtreeGet(state, &key, recordBuffer);
+            int8_t result = vmtreeGet(state, recordBuffer, (void*) (recordBuffer+state->keySize));
             if (result != 0) 
-            {   errors++;
-                printf("ERROR: Failed to find: %d\n", key);
-                vmtreeGet(state, &key, recordBuffer);
+            {   errors++;                
+                if (state->keySize == 8)
+                    printf("ERROR: Failed to find: Num: %u KEY: %u - %u\n", i, *((uint32_t*) recordBuffer), *((uint32_t*) (recordBuffer+4)));
+                else
+                    printf("ERROR: Failed to find: Num: %u KEY: %u\n", i, *((uint32_t*) recordBuffer));    
+                vmtreeGet(state, recordBuffer, (void*) (recordBuffer+state->keySize));
             }
-            else if (*((uint32_t*) recordBuffer) != key)
-            {   printf("ERROR: Wrong data for: %d\n", key);
-                printf("Key: %d Data: %d\n", key, *((uint32_t*) recordBuffer));
+            else if (state->dataSize > 0 && *((uint32_t*) (recordBuffer+state->keySize)) != key)
+            {   printf("ERROR: Wrong data for: %u\n", key);
+                printf("Key: %u Data: %u\n", key, *((uint32_t*) recordBuffer));
             }
             if (i % stepSize == 0)
             {                                     

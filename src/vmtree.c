@@ -324,7 +324,7 @@ void printSpaces(int num)
 */
 void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *buffer)
 {
-	uint32_t key, val;	
+	uint32_t key, val, key2;	
 
 	if (state->parameters != OVERWRITE)
 	{	
@@ -338,11 +338,11 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 					
 			for (c=0; c < count && c < state->maxInteriorRecordsPerPage; c++)
 			{			
-				memcpy(&key, (int32_t*) (buffer+state->keySize * c + state->headerSize), sizeof(int32_t));
-				memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->headerSize + c*sizeof(id_t)), sizeof(int32_t));
+				memcpy(&key, (int32_t*) (buffer+state->keySize * c + state->headerSize), sizeof(uint32_t));
+				memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->headerSize + c*sizeof(id_t)), sizeof(uint32_t));
 				if (state->keySize == 8)
 				{
-					int32_t key2 = *((int32_t*) (buffer + state->headerSize + state->recordSize * c + 4));
+					memcpy(&key2, (int32_t*) (buffer + state->headerSize + state->recordSize * c + sizeof(uint32_t)), sizeof(uint32_t));					
 					printf("Key: %u - %u Value: %d\n", key, key2, val);			
 				}
 				else
@@ -366,18 +366,25 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 			printf("Id: %lu Loc: %lu Cnt: %d (%lu, %lu)\n", VMTREE_GET_ID(buffer), pageNum, count, minkey, maxkey);
 
 			/* Print data records (optional) */	
-			/*		
+			/*
 			for (int c=0; c < count; c++)
 			{				
-				memcpy(&key, (int32_t*) (buffer + state->headerSize + state->recordSize * c), sizeof(int32_t));
-				memcpy(&val, (int32_t*) (buffer + state->headerSize + state->recordSize * c + state->keySize), sizeof(int32_t));
+				memcpy(&key, (int32_t*) (buffer + state->headerSize + state->recordSize * c), sizeof(uint32_t));
+				if (state->dataSize > 0)
+					memcpy(&val, (int32_t*) (buffer + state->headerSize + state->recordSize * c + state->keySize), sizeof(uint32_t));
 				printSpaces(depth*3+2);
 				if (state->keySize == 8)
-					printf(" (%u - %u, %u)", *((uint32_t*) key), *((uint32_t*) (key+4)), val);																	
+				{	memcpy(&key2, (int32_t*) (buffer + state->headerSize + state->recordSize * c + sizeof(uint32_t)), sizeof(uint32_t));	
+					printf(" (%u - %u", key, key2);
+					if (state->dataSize > 0)
+						printf(", %u)\n", val);
+					else
+						printf(")\n");
+				}
 				else					
-					printf(" (%u, %u)", key, val);																										
+					printf(" (%u, %u)\n", key, val);																										
 			}	
-			*/			
+			*/		
 		}
 	}
 	else
@@ -409,7 +416,7 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 				{
 					memcpy(&key, (int32_t*) (buffer+state->keySize * c + state->interiorHeaderSize), sizeof(int32_t));
 					memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->interiorHeaderSize + c*sizeof(id_t)), sizeof(id_t));					
-					printf(" (%d, %u)", key, val);																	
+					printf(" (%u, %u)", key, val);																	
 				}
 			}			
 			printf("\n");			
@@ -2430,7 +2437,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 
 			if (mustWrite)
 			{
-				if (state->parameters != OVERWRITE)
+				if (state->parameters == VMTREE)
 				{
 					// Invalidate page
 					dbbufferSetFree(state->buffer, nextId);
@@ -2590,7 +2597,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 				/* Set previous id in page if does not have one currently */
 				prevId = vmtreeUpdatePrev(state, buf, parent);				
 				
-				if (state->parameters != OVERWRITE)
+				if (state->parameters == VMTREE)
 				{
 					pageNum = writePage(state->buffer, buf);							
 
@@ -3037,7 +3044,7 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 	/* Starting at root search for key */
 	int8_t l;
 	void *buf;
-	id_t childNum, nextId = state->activePath[0];
+	id_t childNum, nextId = state->activePath[0];	
 
 	for (l=0; l < state->levels-1; l++)
 	{		
@@ -3045,15 +3052,16 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 
 		/* Find the key within the node. Sorted by key. Use binary search. */
 		childNum = vmtreeSearchNode(state, buf, key, nextId, 0);
-		nextId = getChildPageId(state, buf, nextId, l, childNum);
+		nextId = getChildPageId(state, buf, nextId, l, childNum);			
 		if (nextId == -1)
 			return -1;		
 	}
 
-	/* Search the leaf node and return search result */
+	/* Search the leaf node and return search result */	
 	buf = readPage(state->buffer, nextId);
 	if (buf == NULL)
 		return -1;
+		
 	nextId = vmtreeSearchNode(state, buf, key, nextId, 0);
 
 	if (nextId != -1)

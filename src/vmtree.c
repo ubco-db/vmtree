@@ -1537,7 +1537,7 @@ int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
 	id_t  	parent, nextId = state->activePath[0];	
 	int32_t pageNum, childNum;
 	int16_t count;
-	id_t    bufferedParentKey;
+	void*   bufferedParentKey = state->tempKey2;
 
 	/* Sort log records */ 
 	in_memory_sort(state->logBuffer, (uint32_t) state->numLogRecords, state->recordSize, state->compareKey, 1);
@@ -1571,12 +1571,12 @@ int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
 				childNum = vmtreeSearchNode(state, buf, key, nextId, 1);	
 				
 				if (l == 0)
-					memcpy(&bufferedParentKey, buf+state->interiorHeaderSize+state->keySize*childNum, state->keySize);
+					memcpy(bufferedParentKey, buf+state->interiorHeaderSize+state->keySize*childNum, state->keySize);
 				else
 				{	// Keep smallest separator seen so far. This is necessary as right most child may have separator larger than parent separator.
 					memcpy(state->tempKey, buf+state->interiorHeaderSize+state->keySize*childNum, state->keySize);
-					if (state->compareKey(state->tempKey, &bufferedParentKey) < 0)
-						memcpy(&bufferedParentKey, state->tempKey, state->keySize);
+					if (state->compareKey(state->tempKey, bufferedParentKey) < 0)
+						memcpy(bufferedParentKey, state->tempKey, state->keySize);
 				}				
 				
 				// printf("Separator key: %lu\n", bufferedParentKey);	
@@ -1600,7 +1600,7 @@ int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
 		else
 		{
 			nextkey = state->logBuffer+state->recordSize*(logidx+1);
-			mustWrite = state->compareKey(nextkey, &bufferedParentKey) < 0 ? 0 : 1;
+			mustWrite = state->compareKey(nextkey, bufferedParentKey) < 0 ? 0 : 1;
 			mustSearch = mustWrite;
 		}
 			
@@ -2335,7 +2335,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 	id_t  	prevId, parent, nextId = state->activePath[0];	
 	int32_t pageNum, childNum;
 	int16_t count;
-	id_t    bufferedParentKey;
+	void*   bufferedParentKey = state->tempKey2;
 
 	/* Sort log records */ 
 	in_memory_sort(state->logBuffer, (uint32_t) state->numLogRecords, state->recordSize, state->compareKey, 1);
@@ -2370,17 +2370,17 @@ int8_t vmtreePutBatch(vmtreeState *state)
 				if (childNum == VMTREE_GET_COUNT(buf))
 				{	// Special case: No key for last pointer. Set to high value if root otherwise ignore (use last value seen).
 					if (l == 0)
-						memset(&bufferedParentKey, 1, state->keySize);
+						memset(bufferedParentKey, 255, state->keySize);
 				}	
 				else
 				{
 					if (l == 0)
-						memcpy(&bufferedParentKey, buf+state->headerSize+state->keySize*childNum, state->keySize);
+						memcpy(bufferedParentKey, buf+state->headerSize+state->keySize*childNum, state->keySize);
 					else
 					{	// Keep smallest separator seen so far. This is necessary as right most child may have separator larger than parent separator.
 						memcpy(state->tempKey, buf+state->headerSize+state->keySize*childNum, state->keySize);
-						if (state->compareKey(state->tempKey, &bufferedParentKey) < 0)
-							memcpy(&bufferedParentKey, state->tempKey, state->keySize);
+						if (state->compareKey(state->tempKey, bufferedParentKey) < 0)
+							memcpy(bufferedParentKey, state->tempKey, state->keySize);
 					}				
 				}
 				// printf("Separator key: %lu\n", bufferedParentKey);	

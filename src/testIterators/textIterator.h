@@ -1,8 +1,8 @@
 /******************************************************************************/
 /**
-@file		fileIterator.h
+@file		textIterator.h
 @author		Ramon Lawrence
-@brief		Reads records from a file as an iterator to provide data to index.
+@brief		Reads records from a text file as an iterator to provide data to index.
 @copyright	Copyright 2022
 			The University of British Columbia,
 			Ramon Lawrence		
@@ -33,8 +33,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 /******************************************************************************/
-#ifndef FILE_ITERATOR_H
-#define FILE_ITERATOR_H
+#ifndef TEXT_ITERATOR_H
+#define TEXT_ITERATOR_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -46,21 +46,23 @@
 #include "file/sdcard_c_iface.h"
 #endif
 
-typedef struct fileIteratorState 
+typedef struct textIteratorState 
 {	
 	recordIteratorState 	state;			/* Basic iterator state */
-	SD_FILE*				file;			/* Input file */	
-	char*					buffer;			/* Buffer for one page of data file */	
+	SD_FILE*				file;			/* Input file */		
 	char*					filePath;		/* File name with path for input file */
 	uint16_t				pageSize;		/* Page size of input file */	
-	uint16_t				curRec;			/* Current record index */
-	uint8_t					headerSize;		/* Page header size */
+	uint16_t				curRec;			/* Current record index */	
 	uint16_t				recordSize;		/* Record size */
-	uint8_t					keyOffset;		/* Offset from start of record for key */
-} fileIteratorState;
+	uint8_t					headerRows;		/* header rows to skip */
+	char*					separator;		/* Separator for fields */
+	uint8_t					keyField;		/* Key field index (from 0) */
+	int8_t					dataField;		/* Date field index (from 0). */
+											/* If -1, perform secondary index with no data field and record # as 2nd key field. */
+} textIteratorState;
 
 /**
-@brief     	Returns next record using file iterator.
+@brief     	Returns next record using text file iterator.
 @param		state
                 Record iterator structure
 @param		key
@@ -71,67 +73,89 @@ typedef struct fileIteratorState
 				Returns record id.
 @return		 Returns 0 if success, non-zero if failure.
 */
-int8_t fileIteratorNext(recordIteratorState *iter, void *key, void *data, uint32_t *recId)
+int8_t textIteratorNext(recordIteratorState *iter, void *key, void *data, uint32_t *recId)
 {
 	if (iter->nextRecordId >= iter->size)
 		return -1;
 		
-	fileIteratorState* it = (fileIteratorState*) iter;
+	textIteratorState* it = (textIteratorState*) iter;
+
+	char str[100];
 
 	while (1)
 	{
-		/* Check to see if have processed all records on page */
-		int16_t count = *((int16_t*) (it->buffer+4));           
-
-		if (it->curRec >= count)
-		{	/* Read next page */
-			if (!fread(it->buffer, it->pageSize, 1, it->file)) 
-				return -1;	
-			it->curRec = 0;		
-		}       
-
-		void *loc = (it->buffer + it->headerSize + it->curRec*it->recordSize);				
-        
-		/* Secondary index record (dataValue, recordNum) into B-tree secondary index */
-		memcpy(key, (void*) (loc + it->keyOffset), sizeof(uint32_t));
-		memcpy( (void*) ((char*) key + 4), &(iter->nextRecordId), sizeof(uint32_t));    
+		/* Read row of input */		
+		if (!fgets(str, 100, it->file))
+		{
+			printf("Unable to read row in input file.\n");
+			iter->size = iter->nextRecordId; 	/* Exhausted all rows in file */
+			return -1;
+		}		
+	   
+	   	char *token = strtok(str, it->separator);	
+		int8_t idx = 0;
+		uint32_t val;
+		while (token != NULL) 
+		{						
+			/* Assumes 32-bit integers for key fields */
+			if (idx == it->keyField)
+			{
+				val = atoi(token);
+				memcpy(key, &val, sizeof(uint32_t));
+				if (it->dataField == -1)
+				{
+					memcpy( (void*) ((char*) key + 4), &(iter->nextRecordId), sizeof(uint32_t));  
+					break;
+				}				
+			}
+			else if (idx == it->dataField)
+			{	/* Assumes 32-bit integers for data fields */
+				val = atoi(token);
+				memcpy(key, &val, sizeof(uint32_t));
+				if (it->keyField < idx)
+					break;
+			}
+			idx++;
+			token = strtok(NULL,  it->separator);
+		}	
 			   
         *recId = iter->nextRecordId;
 		it->curRec++;
 
 		iter->nextRecordId++;
-		return 0;                             
-	}                	
+		return 0;    
+	}                         	                	
 }
 
 /**
-@brief     	Closes file iterator.
+@brief     	Closes text file iterator.
 @param		state
                 Record iterator structure
 */
-void fileIteratorClose(recordIteratorState *iter)
+void textIteratorClose(recordIteratorState *iter)
 {
-	fileIteratorState* it = (fileIteratorState*) iter;
+	textIteratorState* it = (textIteratorState*) iter;
 
 	fclose(it->file);
 	it->file = NULL;
 }
 
 /**
-@brief     	Initializes file iterator.
+@brief     	Initializes text file iterator.
 @param		state
                 Record iterator structure
 @return		 Returns 0 if success, non-zero if failure.
 */
-int8_t fileIteratorInit(recordIteratorState *iter)
+int8_t textIteratorInit(recordIteratorState *iter)
 {
-	fileIteratorState* it = (fileIteratorState*) iter;
-	
+	textIteratorState* it = (textIteratorState*) iter;
+	char str[200];
+
 	it->state.nextRecordId = 0;
 	
 	if (it->file == NULL)
 	{
-		it->file = fopen(it->filePath, "r+b"); 
+		it->file = fopen(it->filePath, "r"); 
 		if (it->file == NULL) {
 			printf("Error: Can't open file: %s\n", it->filePath);
 			return -1;
@@ -142,17 +166,20 @@ int8_t fileIteratorInit(recordIteratorState *iter)
 		fseek(it->file, 0, SEEK_SET); 
 	}     	
 
-	/* Read and buffer first page */
-	if (fread(it->buffer, it->pageSize, 1, it->file) == 0) {
-		printf("Unable to read first page in input file.\n");
-		return -1;
-	}     	
-
-	it->curRec = 0;
-
-	it->state.init = fileIteratorInit;
-	it->state.next = fileIteratorNext;
-	it->state.close = fileIteratorClose;	
+	/* Read and skip by any header rows */
+	for (uint8_t i=0; i < it->headerRows; i++)
+	{
+		if (!fgets(str, 200, it->file))
+		{
+			printf("Unable to read header row in input file.\n");
+			return -1;
+		}
+		// printf("%s", str);		
+	}
+	
+	it->state.init = textIteratorInit;
+	it->state.next = textIteratorNext;
+	it->state.close = textIteratorClose;	
 	return 0;
 }
 

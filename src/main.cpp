@@ -82,21 +82,40 @@ recordIteratorState* randomIterator(int32_t numRecords)
     return (recordIteratorState*) iter;
 }
 
-recordIteratorState* fileIterator(int32_t numRecords, char* fileName)
+recordIteratorState* fileIterator(int32_t numRecords, char* fileName, uint8_t keyOffset, uint8_t recordSize)
 {                            
     fileIteratorState* iter = (fileIteratorState*) malloc(sizeof(fileIteratorState));      
     iter->filePath = fileName;  
-    iter->file = NULL;      
+    iter->file = NULL;        
     iter->pageSize = 512;
-    iter->recordSize = 16;
+    iter->recordSize = recordSize;
     iter->headerSize = 16;        
-    iter->buffer = (char*) malloc(iter->pageSize);
+    iter->keyOffset = keyOffset;
+    iter->buffer = malloc(iter->pageSize);
     fileIteratorInit((recordIteratorState*) iter);
 
     iter->state.size = numRecords;
     return (recordIteratorState*) iter;
 }
+ 
+recordIteratorState* textIterator(int32_t numRecords, char* fileName, uint8_t headerRows, char* separator, uint8_t keyIdx, int8_t dataIdx)
+{                            
+    textIteratorState* iter = (textIteratorState*) malloc(sizeof(textIteratorState));      
+    iter->filePath = fileName;  
+    iter->file = NULL;            
+    iter->recordSize = 16;    
+    iter->headerRows = headerRows;
+    iter->separator = separator;
+    iter->keyField = keyIdx;
+    iter->dataField = dataIdx;
 
+    if (textIteratorInit((recordIteratorState*) iter) == -1)
+      return NULL;
+
+    iter->state.size = numRecords;
+
+    return (recordIteratorState*) iter;
+}
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -136,18 +155,41 @@ void setup() {
   init_df((void*) &at45db32_m);
 
   int16_t M = 3, logBufferPages = 2, numRuns = 3;
-  int8_t type = OVERWRITE;   // VMTREE, BTREE, OVERWRITE
+  int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
+  int8_t testType = 1;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
+
   recordIteratorState* it;
 
-  // it = randomIterator(10000);
-  // runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
-  // free(it);
+  switch (testType)
+  {
+    case 0:
+      it = randomIterator(100000);
+      runtest(M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
+      break;
 
+    case 1: 
+      it = fileIterator(100000, "data/sea100K.bin", 4, 16);   // Offset 4: temp, 8: pressure, 12: wind
+      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      break;
 
-  it = fileIterator(10000, (char*) "sea100K.bin");
-  // recordIteratorState* it = fileIterator(100000, "data/uwa500K.bin");
-  runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
-  free(it);
+    case 2: 
+      it = fileIterator(100000, "data/uwa500K.bin", 4, 16); // Offset 4: temp, 8: pressure, 12: wind
+      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      break;
+
+    case 3:
+      it = fileIterator(100000, "data/S7hl500K.bin", 0, 32);  
+      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      break;
+
+    case 4:
+      it = textIterator(100000, "data/S7_respiban_500K.txt", 3, "\t", 2, -1);  
+      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      break;
+  } 
+
+  if (it != NULL)  
+    free(it);  
 }
 
 void loop() {

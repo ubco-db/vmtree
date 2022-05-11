@@ -39,6 +39,7 @@
 #include "vmtree.h"
 #include "testIterators/randomIterator.h"
 #include "testIterators/fileIterator.h"
+#include "testIterators/textIterator.h"
 #include "fileStorage.h"
 #include "dfStorage.h"
 // #include "memStorage.h"

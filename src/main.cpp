@@ -91,7 +91,7 @@ recordIteratorState* fileIterator(int32_t numRecords, char* fileName, uint8_t ke
     iter->recordSize = recordSize;
     iter->headerSize = 16;        
     iter->keyOffset = keyOffset;
-    iter->buffer = malloc(iter->pageSize);
+    iter->buffer = (char*) malloc(iter->pageSize);
     fileIteratorInit((recordIteratorState*) iter);
 
     iter->state.size = numRecords;
@@ -163,28 +163,28 @@ void setup() {
   switch (testType)
   {
     case 0:
-      it = randomIterator(100000);
-      runtest(M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
+      it = randomIterator(10000);
+      runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
       break;
 
     case 1: 
-      it = fileIterator(100000, "data/sea100K.bin", 4, 16);   // Offset 4: temp, 8: pressure, 12: wind
-      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      it = fileIterator(10000, (char*) "data/sea100K.bin", 4, 16);   // Offset 4: temp, 8: pressure, 12: wind
+      runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
 
     case 2: 
-      it = fileIterator(100000, "data/uwa500K.bin", 4, 16); // Offset 4: temp, 8: pressure, 12: wind
-      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      it = fileIterator(10000, (char*) "data/uwa500K.bin", 4, 16); // Offset 4: temp, 8: pressure, 12: wind
+      runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
 
     case 3:
-      it = fileIterator(100000, "data/S7hl500K.bin", 0, 32);  
-      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      it = fileIterator(10000, (char*) "data/S7hl500K.bin", 0, 32);  
+      runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
 
     case 4:
-      it = textIterator(100000, "data/S7_respiban_500K.txt", 3, "\t", 2, -1);  
-      runtest(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      it = textIterator(10000, (char*) "data/S7_respiban_500K.txt", 3, (char*) "\t", 2, -1);  
+      runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
   } 
 

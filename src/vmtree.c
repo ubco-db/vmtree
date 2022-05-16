@@ -342,11 +342,11 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 				memcpy(&val, (int32_t*) (buffer+state->keySize * state->maxInteriorRecordsPerPage + state->headerSize + c*sizeof(id_t)), sizeof(uint32_t));
 				if (state->keySize == 8)
 				{
-					memcpy(&key2, (int32_t*) (buffer + state->headerSize + state->recordSize * c + sizeof(uint32_t)), sizeof(uint32_t));					
-					printf("Key: %u - %u Value: %d\n", key, key2, val);			
+					memcpy(&key2, (int32_t*) (buffer + state->headerSize + state->recordSize * c + sizeof(uint32_t)), sizeof(uint32_t));
+					printf(" (%u - %u, %u)", key, key2, val);											
 				}
 				else
-					printf("Key: %u Value: %u\n", key, val);			
+					printf(" (%u, %u)", key, val);						
 			}
 			
 			/* Print last pointer */
@@ -2370,7 +2370,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 				if (childNum == VMTREE_GET_COUNT(buf))
 				{	// Special case: No key for last pointer. Set to high value if root otherwise ignore (use last value seen).
 					if (l == 0)
-						memset(bufferedParentKey, 255, state->keySize);
+						memset(bufferedParentKey, -1, state->keySize);
 				}	
 				else
 				{
@@ -2383,7 +2383,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 							memcpy(bufferedParentKey, state->tempKey, state->keySize);
 					}				
 				}
-				// printf("Separator key: %lu\n", bufferedParentKey);	
+				// printf("Separator key: %lu\n", *((uint32_t*) bufferedParentKey));	
 
 				nextId = getChildPageId(state, buf, nextId, l, childNum);		
 				if (nextId == -1)
@@ -2406,7 +2406,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		else
 		{
 			nextkey = state->logBuffer+state->recordSize*(logidx+1);
-			mustWrite = state->compareKey(nextkey, &bufferedParentKey) < 0 ? 0 : 1;
+			mustWrite = state->compareKey(nextkey, bufferedParentKey) < 0 ? 0 : 1;
 			mustSearch = mustWrite;
 		}
 			

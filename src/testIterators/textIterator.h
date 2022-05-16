@@ -85,7 +85,7 @@ int8_t textIteratorNext(recordIteratorState *iter, void *key, void *data, uint32
 	while (1)
 	{
 		/* Read row of input */		
-		if (!fgets(str, 100, it->file))
+		if (!sd_fgets(str, 100, it->file))
 		{
 			printf("Unable to read row in input file.\n");
 			iter->size = iter->nextRecordId; 	/* Exhausted all rows in file */
@@ -169,7 +169,7 @@ int8_t textIteratorInit(recordIteratorState *iter)
 	/* Read and skip by any header rows */
 	for (uint8_t i=0; i < it->headerRows; i++)
 	{
-		if (!fgets(str, 200, it->file))
+		if (!sd_fgets(str, 200, it->file))
 		{
 			printf("Unable to read header row in input file.\n");
 			return -1;

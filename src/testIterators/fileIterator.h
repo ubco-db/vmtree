@@ -93,7 +93,7 @@ int8_t fileIteratorNext(recordIteratorState *iter, void *key, void *data, uint32
 		void *loc = (it->buffer + it->headerSize + it->curRec*it->recordSize);				
         
 		/* Secondary index record (dataValue, recordNum) into B-tree secondary index */
-		memcpy(key, (void*) (loc + it->keyOffset), sizeof(uint32_t));
+		memcpy(key, (void*) ((char*) loc + it->keyOffset), sizeof(uint32_t));
 		memcpy( (void*) ((char*) key + 4), &(iter->nextRecordId), sizeof(uint32_t));    
 			   
         *recId = iter->nextRecordId;

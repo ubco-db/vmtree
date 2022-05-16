@@ -55,7 +55,6 @@ extern "C" {
 #define  fseek(x, y, z)		sd_fseek(x, y, z)
 #define  fread(w, x, y, z)	sd_fread(w, x, y, z)
 
-
 /**
 @brief		Wrapper around Arduino File type (a C++ object).
 */
@@ -172,6 +171,25 @@ sd_fwrite(
 	void	*ptr,
 	size_t	size,
 	size_t	nmemb,
+	SD_FILE *stream
+);
+
+/**
+@brief		Read data from an Arduino SD file.
+@details	A wrapper around Arduino SD file gets method.
+@param		ptr
+				A pointer to the memory segment to be read into.
+@param		size
+				The number of bytes to be read 
+@param		stream
+				A pointer to C file struct type associated with an SD
+				file object.
+@returns	The number of characters that have been read.
+*/
+size_t
+sd_fgets(
+	void	*ptr,
+	size_t	size,	
 	SD_FILE *stream
 );
 

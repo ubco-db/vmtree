@@ -148,7 +148,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         uint32_t n = it->size;          
 
         /* Configure file storage */      
-        /*
+        
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         storage->fileName = (char*) "myfile.bin";
@@ -158,9 +158,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-        */
-        /* Configure dataflash memory storage */     
         
+        /* Configure dataflash memory storage */     
+        /*
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
@@ -172,7 +172,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        
+        */
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        
@@ -292,8 +292,8 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                 printf("INSERT ERROR: %d\n", v);
                 return;
             }           
-            /*               
-            int32_t errors = checkValues(state, recordBuffer, rnd.size, i, r);
+            /*                           
+            int32_t errors = checkValues(state, recordBuffer, n, i, r);
             if (errors > 0)
             {
                 printf("ERRORS: %d Num: %d\n", errors, i);
@@ -304,8 +304,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             */                        
             if (i % stepSize == 0)
             {           
-                printf("Num: %lu KEY: %lu\n", i, v);
-                // btreePrint(state);               
+                printf("Num: %lu KEY: %lu\n", i, v);                            
                 l = i / stepSize -1;
                 if (l < numSteps && l >= 0)
                 {

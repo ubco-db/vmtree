@@ -106,6 +106,26 @@ size_t sd_fread(void *ptr, size_t size, size_t nmemb, SD_FILE *stream)
 	return num_bytes / size;	
 }
 
+/**
+@brief		Read data from an Arduino SD file.
+@details	A wrapper around Arduino SD file gets method.
+@param		ptr
+				A pointer to the memory segment to be read into.
+@param		size
+				The number of bytes to be read 
+@param		stream
+				A pointer to C file struct type associated with an SD
+				file object.
+@returns	The number of characters that have been read.
+*/
+size_t sd_fgets(void* ptr, size_t size, SD_FILE *stream)
+{
+	/* read is the size of bytes * num of size-bytes */
+	int16_t num_bytes = stream->f.fgets((char *) ptr, size);
+	
+	return num_bytes;	
+}
+
 int sd_fseek(SD_FILE *stream, unsigned long int	offset, int	whence) 
 {	
 	if (NULL == stream) 

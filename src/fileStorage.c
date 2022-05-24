@@ -35,6 +35,7 @@
 /******************************************************************************/
 
 #include "fileStorage.h"
+#include <string.h>
 
 /**
 @brief     	Initializes storage. Opens file.
@@ -46,9 +47,24 @@ int8_t fileStorageInit(storageState *storage)
 {	 
 	fileStorageState *fs = (fileStorageState*) storage;
 
+	#ifndef MULTIFILE
+	// Single-file implementation
 	fs->file = fopen(fs->fileName, "w+b");
     if (NULL == fs->file) 
 		return -1;
+	#else
+	// Multi-file implementation
+	char str[20];
+	
+	for (uint8_t i=0; i < 10; i++)
+	{
+		sprintf(str, "%s%d.bin", fs->fileName, i);
+		// printf("%s\n", str);
+		fs->files[i] = fopen(str, "w+b");
+    	if (NULL == fs->files[i]) 
+			return -1;
+	}
+	#endif
 
 	fs->storage.init = fileStorageInit;
 	fs->storage.close = fileStorageClose;
@@ -58,6 +74,29 @@ int8_t fileStorageInit(storageState *storage)
 	fs->storage.flush = fileStorageFlush;
 
 	return 0;	
+}
+
+/**
+@brief      Retrieves file handle for file that should contain given page number.
+@param     	state
+                File storage state structure
+@param     	pageNum
+                Physical page id (number)
+@return		 Returns file handle. May change pageNum to be proper offset in file.
+*/
+SD_FILE*  getFile(fileStorageState *fs, id_t* pageNum)
+{	
+	#ifndef MULTIFILE
+	// Single-file implementation
+	return fs->file;
+	#else
+	// Multi-file implementation
+	uint8_t idx = *pageNum / fs->fileSize;
+	if (idx >= 10)
+		idx = 9;
+	*pageNum = *pageNum % fs->fileSize;
+	return fs->files[idx];
+	#endif
 }
 
 /**
@@ -76,7 +115,7 @@ int8_t fileStorageReadPage(storageState *storage, id_t pageNum, count_t pageSize
 {	
 	fileStorageState *fs = (fileStorageState*) storage;
 
-	SD_FILE* fp = fs->file;
+	SD_FILE* fp = getFile(fs, &pageNum);
   
     /* Seek to page location in file */
     fseek(fp, pageNum*pageSize, SEEK_SET);
@@ -105,10 +144,12 @@ int8_t fileStorageWritePage(storageState *storage, id_t pageNum, count_t pageSiz
 {    
 	fileStorageState *fs = (fileStorageState*) storage;
 
-	/* Seek to page location in file */
-    fseek(fs->file, pageNum*pageSize, SEEK_SET);
+	FILE* fp = getFile(fs, &pageNum);
 
-	fwrite(buffer, pageSize, 1, fs->file);
+	/* Seek to page location in file */
+    fseek(fp, pageNum*pageSize, SEEK_SET);
+
+	fwrite(buffer, pageSize, 1, fp);
 	
 	return 0;
 }
@@ -137,7 +178,17 @@ int8_t fileStorageErasePages(storageState *storage, id_t startPage, id_t endPage
 void fileStorageFlush(storageState *storage)
 {
 	fileStorageState *fs = (fileStorageState*) storage;
+	
+	#ifndef MULTIFILE
+	// Single-file implementation
 	fflush(fs->file);
+	#else	
+	// Multi-file implementation
+	for (uint8_t i=0; i < 10; i++)
+	{
+		fflush(fs->files[i]);		
+	}
+	#endif
 }
 
 
@@ -149,6 +200,16 @@ void fileStorageFlush(storageState *storage)
 void fileStorageClose(storageState *storage)
 {	
 	fileStorageState *fs = (fileStorageState*) storage;
-	fclose(fs->file);
+	
+	#ifndef MULTIFILE
+	// Single-file implementation
+	 fclose(fs->file);
+	#else	
+	// Multi-file implementation
+	for (uint8_t i=0; i < 10; i++)
+	{
+		fclose(fs->files[i]);		
+	}	
+	#endif
 }
 

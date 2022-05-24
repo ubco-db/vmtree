@@ -151,7 +151,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
-        storage->fileName = (char*) "myfile.bin";
+        storage->fileName = (char*) "myfile";
         storage->storage.size = 5000;
         if (fileStorageInit((storageState*) storage) != 0)
         {

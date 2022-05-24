@@ -49,10 +49,17 @@ extern "C" {
 #include "file/sdcard_c_iface.h"
 #endif
 
+#define MULTIFILE	1
+
 typedef struct {
 	storageState 	storage;			/* Base struct defining read/write page functions */
+	#ifndef MULTIFILE
 	SD_FILE 		*file;				/* File storing data */	
+	#else
+	SD_FILE*		files[10];			/* Use multiple files for performance rather than one. */
+	#endif
 	char			*fileName;			/* File name for storage */
+	uint32_t		fileSize;			/* Maximum size in records for each file */
 } fileStorageState;
 
 

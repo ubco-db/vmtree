@@ -323,8 +323,7 @@ int8_t dbbufferEnsureSpace(dbbuffer *state, count_t pages)
 {
 	id_t startErase, endErase;
 	id_t parentId = 0;		/* TODO: Not currently used */
-	void *parentBuffer;		/* TODO: Not currently used */
-	int32_t pageIdToMove[state->eraseSizeInPages];					
+	void *parentBuffer;		/* TODO: Not currently used */				
 	uint8_t numMove;	
 	id_t totalPagesLookedAt = 0;
 
@@ -364,64 +363,83 @@ finderase:
 		endErase = state->eraseSizeInPages-1;
 	}		
 
-	for (id_t i=startErase; i <= endErase; i++)
+	int8_t blockErase = 0;
+
+	if (blockErase)
 	{
-		int8_t response = state->isValid(state->state, i, &parentId, &parentBuffer);
-		// printf("Status page: %d  Status: %d\n", i, response);
-		if (response == -1)
-			continue;
+		int32_t pageIdToMove[state->eraseSizeInPages];		
+		for (id_t i=startErase; i <= endErase; i++)
+		{
+			int8_t response = state->isValid(state->state, i, &parentId, &parentBuffer);
+			// printf("Status page: %d  Status: %d\n", i, response);
+			if (response == -1)
+				continue;
 
-		if (response == 1)
-		{	/* Mapping but no valid node. Must update parent but not the node itself. */
-			/* Active mapping will be detected when try to write page. Page will be skipped. */											
-			pageIdToMove[numMove] = -1;		
-			// TODO: Need to set dbBufferIsFree to 0 for these pages that are not valid but also cannot overwrite due to mapping?	
-			// Works fine now even when set to 1 as dbbufferNextValidPage checks mapping at write time and will not allow write because of that. Consider simplifying.					
-		}
-		else
-		{	/* Valid node at this location. Must rewrite node and its parent. */			
-			pageIdToMove[numMove] = i;
-
-			/* Read page */
-			void *buf = readPage(state, i);
-			if (buf == NULL)
-			{
-				printf("Read page error: %lu\n", i);
-				buf = readPage(state, i);
+			if (response == 1)
+			{	/* Mapping but no valid node. Must update parent but not the node itself. */
+				/* Active mapping will be detected when try to write page. Page will be skipped. */											
+				pageIdToMove[numMove] = -1;		
+				// TODO: Need to set dbBufferIsFree to 0 for these pages that are not valid but also cannot overwrite due to mapping?	
+				// Works fine now even when set to 1 as dbbufferNextValidPage checks mapping at write time and will not allow write because of that. Consider simplifying.					
 			}
-			/* Copy required pages into buffer block */
-			memcpy(state->blockBuffer + numMove * state->pageSize, buf, state->pageSize);
+			else
+			{	/* Valid node at this location. Must rewrite node and its parent. */			
+				pageIdToMove[numMove] = i;
+
+				/* Read page */
+				void *buf = readPage(state, i);
+				if (buf == NULL)
+				{
+					printf("Read page error: %lu\n", i);
+					buf = readPage(state, i);
+				}
+				/* Copy required pages into buffer block */
+				memcpy(state->blockBuffer + numMove * state->pageSize, buf, state->pageSize);
+			}
+								
+			numMove++;
 		}
-							
-		numMove++;
-	}
 
-	state->numMoves += numMove;
+		state->numMoves += numMove;
 
-	if (numMove >= state->eraseSizeInPages)			
-	{	// Full block. Skip
-		// printf("Skipping pages and leaving as is. Start: %d End: %d\n", startErase, endErase);				
-		state->erasedEndPage = endErase;
-		totalPagesLookedAt += state->eraseSizeInPages;
-		// printf("Total pages looked: %lu\n", totalPagesLookedAt);
-		if (totalPagesLookedAt >= state->endDataPage - pages)
-			return 0;
-		goto finderase;
-	}
+		if (numMove >= state->eraseSizeInPages)			
+		{	// Full block. Skip
+			// printf("Skipping pages and leaving as is. Start: %d End: %d\n", startErase, endErase);				
+			state->erasedEndPage = endErase;
+			totalPagesLookedAt += state->eraseSizeInPages;
+			// printf("Total pages looked: %lu\n", totalPagesLookedAt);
+			if (totalPagesLookedAt >= state->endDataPage - pages)
+				return 0;
+			goto finderase;
+		}
 
-	/* Erase block */
-	erasePages(state, startErase, endErase);	
-	
-	/* Copy pages back into erased block */
-	for (id_t i=0; i < numMove; i++)
-	{			
-		if (pageIdToMove[i] != -1)
-		{	/* Must move page */
-			// printf("Moving page: %d\n", pageIdToMove[i]);
+		/* Erase block */
+		erasePages(state, startErase, endErase);	
 		
-			/* Write page from block buffer */
-			writePageDirect(state, state->blockBuffer + i * state->pageSize, pageIdToMove[i]);							
+		/* Copy pages back into erased block */
+		for (id_t i=0; i < numMove; i++)
+		{			
+			if (pageIdToMove[i] != -1)
+			{	/* Must move page */
+				// printf("Moving page: %d\n", pageIdToMove[i]);
+			
+				/* Write page from block buffer */
+				writePageDirect(state, state->blockBuffer + i * state->pageSize, pageIdToMove[i]);							
+			}
 		}
+	}
+	else
+	{	// Can erase pages at a time. That means do not need to move pages within a block.
+		for (id_t i=startErase; i <= endErase; i++)
+		{
+			int8_t response = state->isValid(state->state, i, &parentId, &parentBuffer);
+			// printf("Status page: %d  Status: %d\n", i, response);
+			if (response == -1)
+				erasePages(state, i, i);			// Page is not used. Erase only this page.
+			else if (response == 1)
+				erasePages(state, i, i);			// Page is not used but active mapping. Erase page.
+			// Otherwise page is valid. Not erased.														
+		}		
 	}
 
 	state->erasedEndPage = endErase;

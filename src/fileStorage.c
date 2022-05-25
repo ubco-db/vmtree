@@ -49,18 +49,20 @@ int8_t fileStorageInit(storageState *storage)
 
 	#ifndef MULTIFILE
 	// Single-file implementation
-	fs->file = fopen(fs->fileName, "w+b");
+	char str[20];
+	sprintf(str, "%s.bin", fs->fileName);
+	fs->file = fopen(str, "w+b");
     if (NULL == fs->file) 
 		return -1;
 	#else
-	// Multi-file implementation
+	// Multi-file implementation	
 	char str[20];
 	
 	for (uint8_t i=0; i < 10; i++)
 	{
-		sprintf(str, "%s%d.bin", fs->fileName, i);
-		// printf("%s\n", str);
-		fs->files[i] = fopen(str, "w+b");
+		sprintf(str, "%s%d.bin", fs->fileName, i);		
+		// printf("%s\n", str);		
+		fs->files[i] = fopen(str, "w+b");				
     	if (NULL == fs->files[i]) 
 			return -1;
 	}
@@ -115,8 +117,8 @@ int8_t fileStorageReadPage(storageState *storage, id_t pageNum, count_t pageSize
 {	
 	fileStorageState *fs = (fileStorageState*) storage;
 
-	SD_FILE* fp = getFile(fs, &pageNum);
-  
+	SD_FILE* fp = getFile(fs, &pageNum);	
+
     /* Seek to page location in file */
     fseek(fp, pageNum*pageSize, SEEK_SET);
 
@@ -144,7 +146,7 @@ int8_t fileStorageWritePage(storageState *storage, id_t pageNum, count_t pageSiz
 {    
 	fileStorageState *fs = (fileStorageState*) storage;
 
-	FILE* fp = getFile(fs, &pageNum);
+	SD_FILE* fp = getFile(fs, &pageNum);
 
 	/* Seek to page location in file */
     fseek(fp, pageNum*pageSize, SEEK_SET);

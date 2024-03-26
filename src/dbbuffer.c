@@ -147,14 +147,17 @@ void* readPage(dbbuffer *state, id_t pageNum)
 	/* Check to see if page is currently in buffer */
 	for (i=1; i < state->numPages; i++)
 	{
+		// printf("(%d, %d)  ", i, state->status[i]);
 		if (state->status[i] == pageNum && pageNum != 0)
 		{
 			state->bufferHits++;
 			buf = state->buffer + state->pageSize*i;
 			state->lastHit = state->status[i];
+			// printf("Buffer hit: %d\n", pageNum);
 			return buf;
 		}
 	}
+	// printf("\n");
 
 	if (state->numPages == 2)
 	{	buf = state->buffer + state->pageSize;
@@ -225,12 +228,16 @@ void* readPage(dbbuffer *state, id_t pageNum)
 */
 void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum)
 {
-	void *buf = state->buffer + bufferNum * state->pageSize;	
-
-	state->storage->readPage(state->storage, pageNum, state->pageSize, buf);
+	void *buf = state->buffer + bufferNum * state->pageSize;		
+	int8_t result = state->storage->readPage(state->storage, pageNum, state->pageSize, buf);	
+	if (result != 0)
+	{
+		printf("Read page error: %d\n", pageNum);
+		return NULL;
+	}
 	
-    state->numReads++;
-	   
+	// printf("Read page: %d Result: %d Buffer: %d\n", pageNum, result, bufferNum);
+    state->numReads++;	   
 	return buf;
 }
 

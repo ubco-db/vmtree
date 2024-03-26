@@ -80,27 +80,36 @@ int sd_fflush(SD_FILE *stream)
 SD_FILE* sd_fopen(const char *filename, const char	*mode) 
 {	
 	File32 f;
-	if (mode[0] == 'w')
-		if (mode[1] == '+')
-			f = sdcard->open(filename, O_RDWR | O_CREAT);
-		else
-			f = sdcard->open(filename, O_WRITE);
-	else
-		f = sdcard->open(filename, O_READ);
-	
-	if (f.isOpen() == false)
-		return NULL;
+    if (mode[0] == 'w') {
+        if (mode[1] == '+') {
+            f = sdcard->open(filename, O_RDWR | O_CREAT);
+        } else {
+            f = sdcard->open(filename, O_WRITE | O_CREAT);
+        }
+        if(f.isOpen() == false)
+            return NULL;
+        f.truncate(0);
+    } else if (mode[0] == 'r') {
+        if (mode[1] == '+') {
+            f = sdcard->open(filename, O_RDWR);
+        } else {
+            f = sdcard->open(filename, O_READ);
+        }
+    }
 
-	_SD_File *file = new struct _SD_File ();
-	file->f = f;		
-	return file;
+    if (f.isOpen() == false)
+        return NULL;
+
+    _SD_File *file = new struct _SD_File();
+    file->f = f;
+    return file;
 }
 
 size_t sd_fread(void *ptr, size_t size, size_t nmemb, SD_FILE *stream) 
 {	
 	/* read is the size of bytes * num of size-bytes */
 	int16_t num_bytes = stream->f.read((char *) ptr, size * nmemb);
-	
+		
 	if (num_bytes < 0)
 		return 0;
 	return num_bytes / size;	
@@ -133,7 +142,9 @@ int sd_fseek(SD_FILE *stream, unsigned long int	offset, int	whence)
 		
 	bool result = stream->f.seek(offset);
 	if (!result)
+	{	printf("Seek failed: %d\n", offset);
 		return -1;
+	}
 	return 0;
 }
 
@@ -141,8 +152,9 @@ size_t sd_fwrite(void *ptr, size_t size, size_t	nmemb, SD_FILE *stream)
 {	
 	size_t	total_count		= size*nmemb;
 	size_t	bytes_written	= stream->f.write(ptr, total_count);
-	
-	if (total_count != bytes_written)
+		
+	if (total_count != bytes_written)		
 		return 0;
+			
 	return total_count;
 }

@@ -119,11 +119,127 @@ int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int
     return errors;
 }
 
+void testRawPerformance()
+{   /* Tests storage raw read and write performance */
+    printf("Starting RAW performance test.\n");
+
+    char buffer[512];
+    unsigned long startMillis;
+    /* SD Card */    
+    SD_FILE *fp = fopen("testdata.bin", "w+b");
+    if (fp == NULL)
+    {
+        printf("Error opening file.\n");
+        return;
+    }
+   
+    // Test time to write 1000 blocks
+    printf("SD card performance metrics:\n");
+    startMillis = millis();
+
+    for (int i=0; i < 1000; i++)
+    {            
+        if (0 == fwrite(buffer, 512, 1, fp))
+        {   printf("Write error.\n");             
+        }
+    }
+    printf("Write time: %lu\n", millis()-startMillis);
+    fflush(fp);
+
+    startMillis = millis();
+
+    for (int i=0; i < 1000; i++)
+    {            
+        unsigned long num = rand() % 1000;         
+        fseek(fp, num*512 , SEEK_SET);
+        if (0 == fwrite(buffer, 512, 1, fp))
+        {   printf("Write error.\n");             
+        }
+    }
+    printf("Random write time: %lu\n", millis()-startMillis);
+    fflush(fp);
+
+    // Time to read 1000 blocks
+    fseek(fp, 0, SEEK_SET);
+    startMillis = millis();
+    for (int i=0; i < 1000; i++)
+    {
+        
+        if (0 == fread(buffer, 512, 1, fp))
+        {   printf("Read error.\n");             
+        }
+    }
+    printf("Read time: %lu\n", millis()-startMillis);
+
+    fseek(fp, 0, SEEK_SET);
+    // Time to read 1000 blocks randomly    
+    startMillis = millis();
+    srand(1);
+    for (int i=0; i < 1000; i++)
+    {
+        unsigned long num = rand() % 1000;         
+        fseek(fp, num*512 , SEEK_SET);
+        if (0 == fread(buffer, 512, 1, fp))
+        {   printf("Read error.\n");             
+        }
+    }
+    printf("Random Read time: %lu\n", millis()-startMillis);
+   
+	/* Data flash storage */
+    printf("Dataflash performance metrics:\n");
+    startMillis = millis();
+
+    for (int i=0; i < 1000; i++)
+    {
+        if (0 == dfwrite(i, buffer, 512))
+        {   printf("Write error.\n");             
+        }
+    }
+    printf("Write time: %lu\n", millis()-startMillis);    
+
+    startMillis = millis();
+
+    for (int i=0; i < 1000; i++)
+    {            
+        unsigned long num = rand() % 1000;                
+        if (0 == dfwrite(num, buffer, 512))
+        {   printf("Write error.\n");             
+        }
+    }
+    printf("Random write time: %lu\n", millis()-startMillis);    
+
+    // Time to read 1000 blocks        
+    startMillis = millis();
+    for (int i=0; i < 1000; i++)
+    {        
+        if (0 == dfread(i, buffer, 512))
+        {   printf("Read error.\n");             
+        }
+    }
+    printf("Read time: %lu\n", millis()-startMillis);
+    
+    // Time to read 1000 blocks randomly    
+    startMillis = millis();
+    srand(1);
+    for (int i=0; i < 1000; i++)
+    {
+        unsigned long num = rand() % 1000;                 
+        if (0 == dfread(num, buffer, 512))
+        {   printf("Read error.\n");             
+        }
+    }
+    printf("Random Read time: %lu\n", millis()-startMillis);	    
+}
+
+
 /**
  * Runs test with given parameters.
  */ 
 void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
 {    
+    // testRawPerformance();
+    // return;
+
     uint32_t stepSize, numSteps = 10;
     int32_t numRecords = it->size;
     count_t r, l;
@@ -151,9 +267,11 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
-        storage->fileName = (char*) "myfile";
-        storage->storage.size = 10000;
-        storage->fileSize = storage->storage.size / 10;
+        printf("FS size: %d\n", sizeof(fileStorageState));
+        storage->fileName = (char*) "afile";
+        storage->storage.size = 2000;
+        storage->fileSize = storage->storage.size / NUM_FILES;
+        printf("Num files: %d  File size: %d\n", NUM_FILES, storage->fileSize);
         if (fileStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
@@ -186,6 +304,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
 
         /* Configure buffer */
         dbbuffer* buffer = (dbbuffer*) malloc(sizeof(dbbuffer));
+        printf("DBBuffer size: %d\n", sizeof(dbbuffer));
         if (buffer == NULL)
         {   printf("Failed to allocate buffer struct.\n");
             return;
@@ -205,6 +324,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             return;
         }
         buffer->blockBuffer = malloc((size_t) buffer->eraseSizeInPages * buffer->pageSize);
+        printf("Block buffer size FS size: %d\n", (size_t) buffer->eraseSizeInPages * buffer->pageSize);
         if (buffer->blockBuffer == NULL)
         {   printf("Failed to allocate block buffer.\n");
             return;
@@ -213,6 +333,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
 
         /* Configure btree state */
         vmtreeState* state = (vmtreeState*) malloc(sizeof(vmtreeState));
+        printf("VMTree state size: %d\n", sizeof(vmtreeState));
         if (state == NULL)
         {   printf("Failed to allocate VMtree state struct.\n");
             return;
@@ -231,8 +352,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             ds = state->keySize;
         state->tempData = malloc(ds);           	               
 
-        state->mappingBufferSize = 1024;
+        state->mappingBufferSize = 1024; // 1024;
         state->mappingBuffer = malloc(state->mappingBufferSize);
+        printf("Mapping buffer size: %d\n", state->mappingBufferSize);
         if (state->mappingBuffer == NULL)
         {   printf("Failed to allocate mapping buffer size: %d\n", state->mappingBufferSize);
             return;
@@ -275,9 +397,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         it->init(it);
 
         unsigned long start = millis();   
-    
+        
         for (i = 1; i <= n ; i++)
-        {                          
+        {                             
             it->next(it, recordBuffer, (void*) (recordBuffer+state->keySize), &recid);
             id_t v =*((int32_t*) recordBuffer);
             /*
@@ -302,7 +424,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                 vmtreePrintMappings(state);
                 return;
             }                
-            */                        
+            */                      
             if (i % stepSize == 0)
             {           
                 printf("Num: %lu KEY: %lu\n", i, v);                            
@@ -358,9 +480,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         for (i = 0; i < n; i++) 
         {                         
             it->next(it, recordBuffer, (void*) (recordBuffer+state->keySize), &recid);
-            id_t key =*((int32_t*) recordBuffer);
+            id_t key =*((int32_t*) recordBuffer);            
 
-            int8_t result = vmtreeGet(state, recordBuffer, (void*) (recordBuffer+state->keySize));
+            int8_t result = vmtreeGet(state, recordBuffer, (void*) (recordBuffer+state->keySize));            
             if (result != 0) 
             {   errors++;                
                 if (state->keySize == 8)

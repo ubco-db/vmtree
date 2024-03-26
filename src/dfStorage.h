@@ -43,7 +43,7 @@ extern "C" {
 #include <stdio.h>
 
 #include "storage.h"
-
+#include "file/dataflash_c_iface.h"
 
 typedef struct {
 	storageState 	storage;			/* Base struct defining read/write page functions */

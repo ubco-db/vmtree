@@ -119,13 +119,13 @@ void vmtreeInit(vmtreeState *state)
 	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;
 	for (int16_t i=0; i < state->maxMappings; i++)
 		mappings[i].prevPage = EMPTY_MAPPING;
-
+	
 	/* Create and write empty root node */
 	void *buf = initBufferPage(state->buffer, 0);
 	VMTREE_SET_ROOT(buf);
 	if (state->parameters != OVERWRITE)
 		VMTREE_SET_COUNT(buf, 0);		
-	state->activePath[0] = writePage(state->buffer, buf);		/* Store root location */		
+	state->activePath[0] = writePageDirect(state->buffer, buf, 0);		/* Store root location */	
 }
 
 /**
@@ -360,10 +360,10 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 		else
 		{	
 			printSpaces(depth*3);
-			uint32_t minkey, maxkey;
-			memcpy(&minkey, (int32_t*) vmtreeGetMinKey(state, buffer), sizeof(uint32_t));
-			memcpy(&maxkey, (int32_t*) vmtreeGetMaxKey(state, buffer), sizeof(uint32_t));			
-			printf("Id: %lu Loc: %lu Cnt: %d (%lu, %lu)\n", VMTREE_GET_ID(buffer), pageNum, count, minkey, maxkey);
+			uint32_t minkey, maxkey;			
+			memcpy(&minkey, (int32_t*) vmtreeGetMinKey(state, buffer), sizeof(uint32_t));			
+			memcpy(&maxkey, (int32_t*) vmtreeGetMaxKey(state, buffer), sizeof(uint32_t));									
+			// printf("Id: %lu Loc: %lu Cnt: %d (%lu, %lu)\n", VMTREE_GET_ID(buffer), pageNum, count, minkey, maxkey);
 
 			/* Print data records (optional) */	
 			/*
@@ -384,7 +384,7 @@ void vmtreePrintNodeBuffer(vmtreeState *state, id_t pageNum, int depth, void *bu
 				else					
 					printf(" (%u, %u)\n", key, val);																										
 			}	
-			*/		
+			*/	
 		}
 	}
 	else
@@ -1942,13 +1942,13 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 	int32_t pageNum, childNum;
 
 	for (l=0; l < state->levels-1; l++)
-	{					
-		buf = readPage(state->buffer, nextId);		
+	{	
+		buf = readPage(state->buffer, nextId);			
 		if (buf == NULL)
 		{
 			printf("ERROR reading page: %lu\n", nextId);
 			return -1;
-		}
+		}		
 
 		// Find the key within the node. Sorted by key. Use binary search. 
 		childNum = vmtreeSearchNode(state, buf, key, nextId, 1);
@@ -1961,7 +1961,13 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 	}
 
 	/* Read the leaf node */
-	buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: May want to use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+	buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: Use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+	if (buf == NULL)
+	{
+		printf("ERROR reading page: %lu\n", nextId);
+		return -1;
+	} 
+	
 	int16_t count =  VMTREE_GET_COUNT(buf); 
 	state->nodeSplitId = nextId;
 
@@ -2766,8 +2772,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		int8_t i;
 donerec:
 		// TODO: Figure out goto without useless statement
-		i = 0;
-		// printf("HERE\n");
+		i = 0;		
 	}
 	return 0;
 }
@@ -3047,9 +3052,10 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 	id_t childNum, nextId = state->activePath[0];	
 
 	for (l=0; l < state->levels-1; l++)
-	{		
-		buf = readPage(state->buffer, nextId);		
-
+	{	
+		buf = readPage(state->buffer, nextId);						
+		if (buf == NULL)
+			return -1;
 		/* Find the key within the node. Sorted by key. Use binary search. */
 		childNum = vmtreeSearchNode(state, buf, key, nextId, 0);
 		nextId = getChildPageId(state, buf, nextId, l, childNum);			
@@ -3057,11 +3063,12 @@ int8_t vmtreeGet(vmtreeState *state, void* key, void *data)
 			return -1;		
 	}
 
-	/* Search the leaf node and return search result */	
-	buf = readPage(state->buffer, nextId);
+	/* Search the leaf node and return search result */		
+	buf = readPage(state->buffer, nextId);	
 	if (buf == NULL)
 		return -1;
-		
+
+	
 	nextId = vmtreeSearchNode(state, buf, key, nextId, 0);
 
 	if (nextId != -1)
@@ -3322,7 +3329,7 @@ int8_t vmtreeMovePage(void *state, id_t prev, id_t curr, void *buf)
 	{
 		// printf("Updating mappings.\n");		
 		vmtreeUpdatePointers(state, buf, 0, VMTREE_GET_COUNT(buf));
-		vmtreePrintNodeBuffer(state, prev, 0, buf);
+		// vmtreePrintNodeBuffer(state, prev, 0, buf);
 	}
 
 	if (((vmtreeState*) state)->activePath[0] == prev)

@@ -54,9 +54,11 @@ extern "C" {
 typedef struct {
 	storageState 	storage;			/* Base struct defining read/write page functions */
 	#ifndef MULTIFILE
+	#define 		NUM_FILES	1
 	SD_FILE 		*file;				/* File storing data */	
 	#else
-	SD_FILE*		files[10];			/* Use multiple files for performance rather than one. */
+	#define 		NUM_FILES	10
+	SD_FILE*		files[NUM_FILES];	/* Use multiple files for performance rather than one. */
 	#endif
 	char			*fileName;			/* File name for storage */
 	uint32_t		fileSize;			/* Maximum size in records for each file */

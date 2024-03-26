@@ -58,7 +58,7 @@ int8_t fileStorageInit(storageState *storage)
 	// Multi-file implementation	
 	char str[20];
 	
-	for (uint8_t i=0; i < 10; i++)
+	for (uint8_t i=0; i < NUM_FILES; i++)
 	{
 		sprintf(str, "%s%d.bin", fs->fileName, i);		
 		// printf("%s\n", str);		
@@ -93,10 +93,11 @@ SD_FILE*  getFile(fileStorageState *fs, id_t* pageNum)
 	return fs->file;
 	#else
 	// Multi-file implementation
-	uint8_t idx = *pageNum / fs->fileSize;
-	if (idx >= 10)
-		idx = 9;
+	uint8_t idx = *pageNum / fs->fileSize;	
+	if (idx >= NUM_FILES)
+		idx = NUM_FILES - 1;	
 	*pageNum = *pageNum % fs->fileSize;
+	// printf("Index: %d pageNum: %d\n", idx, *pageNum);
 	return fs->files[idx];
 	#endif
 }
@@ -120,7 +121,8 @@ int8_t fileStorageReadPage(storageState *storage, id_t pageNum, count_t pageSize
 	SD_FILE* fp = getFile(fs, &pageNum);	
 
     /* Seek to page location in file */
-    fseek(fp, pageNum*pageSize, SEEK_SET);
+    if (fseek(fp, pageNum*pageSize, SEEK_SET) == -1)
+		return -1;
 
     /* Read page into start of buffer 1 */  
 	int8_t result = fread(buffer, pageSize, 1, fp);
@@ -149,10 +151,14 @@ int8_t fileStorageWritePage(storageState *storage, id_t pageNum, count_t pageSiz
 	SD_FILE* fp = getFile(fs, &pageNum);
 
 	/* Seek to page location in file */
-    fseek(fp, pageNum*pageSize, SEEK_SET);
+    if (fseek(fp, pageNum*pageSize, SEEK_SET) == -1)
+		return -1;
 
-	fwrite(buffer, pageSize, 1, fp);
-	
+	int16_t result = fwrite(buffer, pageSize, 1, fp);
+	// printf("Write page: %d size: %d\n", pageNum, result);
+	if (result != 0)
+		return -1;
+
 	return 0;
 }
 
@@ -186,7 +192,7 @@ void fileStorageFlush(storageState *storage)
 	fflush(fs->file);
 	#else	
 	// Multi-file implementation
-	for (uint8_t i=0; i < 10; i++)
+	for (uint8_t i=0; i < NUM_FILES; i++)
 	{
 		fflush(fs->files[i]);		
 	}
@@ -208,7 +214,7 @@ void fileStorageClose(storageState *storage)
 	 fclose(fs->file);
 	#else	
 	// Multi-file implementation
-	for (uint8_t i=0; i < 10; i++)
+	for (uint8_t i=0; i < NUM_FILES; i++)
 	{
 		fclose(fs->files[i]);		
 	}	

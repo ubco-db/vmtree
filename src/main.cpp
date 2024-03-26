@@ -154,30 +154,34 @@ void setup() {
 
   init_df((void*) &at45db32_m);
 
-  int16_t M = 3, logBufferPages = 2, numRuns = 3;
+  int16_t M = 3, logBufferPages = 0, numRuns = 3;
   int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
-  int8_t testType = 1;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
+  int8_t testType = 0;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
 
   recordIteratorState* it;
 
   switch (testType)
   {
     case 0:
+      printf("Random data set test\n");
       it = randomIterator(10000);
       runtest(&at45db32_m, M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
       break;
 
     case 1: 
+      printf("Environmental data set test (SEA)\n");
       it = fileIterator(10000, (char*) "data/sea100K.bin", 4, 16);   // Offset 4: temp, 8: pressure, 12: wind
       runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
 
     case 2: 
+      printf("Environmental data set test (UWA)\n");
       it = fileIterator(10000, (char*) "data/uwa500K.bin", 4, 16); // Offset 4: temp, 8: pressure, 12: wind
       runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;
 
     case 3:
+      printf("Health data set test\n");
       it = fileIterator(10000, (char*) "data/S7hl500K.bin", 0, 32);  
       runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
       break;

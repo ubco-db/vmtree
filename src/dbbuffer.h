@@ -123,6 +123,19 @@ void* readPageBuffer(dbbuffer *state, id_t pageNum, count_t bufferNum);
 int32_t writePage(dbbuffer *state, void* buffer);
 
 /**
+@brief      Writes page to storage. Returns physical page id if success. -1 if failure.
+			This version does not check for wrap around.
+@param     	state
+               	DBbuffer state structure
+@param     	buffer
+                In memory buffer containing page
+@param		pageNum
+				Location to write at
+@return		
+*/
+int32_t writePageDirect(dbbuffer *state, void* buffer, int32_t pageNum);
+
+/**
 @brief      Overwrites page to storage at same physical address. -1 if failure.
 			Caller is responsible for knowing that overwrite is possible given page contents.
 @param     	state

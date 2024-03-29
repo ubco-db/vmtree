@@ -107,11 +107,12 @@ void vmtreeInit(vmtreeState *state)
 	state->numMappings = 0;
 	state->numNodes = 1;
 	state->numMappingCompare = 0;
-	state->maxTries = 1;	
+	state->numMappingWrite = 0;
+	state->maxTries = 5;	
 	state->savedMappingPrev = EMPTY_MAPPING;
 
 	/* Calculate maximum number of mappings */
-	state->maxMappings = state->mappingBufferSize / (2*sizeof(id_t));		/* TODO: May want to add overhead to this calculation */
+	state->maxMappings = state->mappingBufferSize / MAPPING_SIZE;		
 	
 	printf("Max mappings: %d  Number of hash probes: %d\n", state->maxMappings, state->maxTries);
 
@@ -186,7 +187,7 @@ int16_t vmtreeGetMappingIndex(vmtreeState *state, id_t pageId)
 	// Code for fixed sized hash
 	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;	
 	int16_t loc = pageId % state->maxMappings;
-	int8_t i=0;
+	int8_t i=0, offset = HASH_TABLE_PRIME - (pageId % HASH_TABLE_PRIME);
 
 	while (1)
 	{	
@@ -197,7 +198,7 @@ int16_t vmtreeGetMappingIndex(vmtreeState *state, id_t pageId)
 		i++;
 		if (i >= state->maxTries)
 			break;
-		loc += 7;
+		loc += offset;
 		loc = loc % state->maxMappings;	
 	}
 	
@@ -222,11 +223,12 @@ int8_t vmtreeAddMapping(vmtreeState *state, id_t prevPage, id_t currPage)
 	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;
 	
 	int16_t loc = prevPage % state->maxMappings;
-	int8_t i=0;
+	int8_t i=0, offset = HASH_TABLE_PRIME - (prevPage % HASH_TABLE_PRIME);
 	
 	while (1)
 	{
 		state->numMappingCompare++;
+		// printf("Key (prev page): %d  Probe: %d  Loc: %d  PrevPage: %d  CurPage: %d\n", prevPage, i, loc, mappings[loc].prevPage, mappings[loc].currPage);
 		if (mappings[loc].prevPage == prevPage)
 		{	/* Update current mapping */
 			mappings[loc].currPage = currPage;
@@ -245,7 +247,7 @@ int8_t vmtreeAddMapping(vmtreeState *state, id_t prevPage, id_t currPage)
 		if (i >= state->maxTries)
 			break;
 
-		loc += 7;
+		loc += offset;
 		loc = loc % state->maxMappings;	
 	}
 
@@ -268,7 +270,8 @@ int8_t vmtreeDeleteMapping(vmtreeState *state, id_t prevPage)
 	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;
 			
 	int16_t loc = prevPage % state->maxMappings;	
-	int8_t i;
+	int8_t i=0, offset = HASH_TABLE_PRIME - (prevPage % HASH_TABLE_PRIME);
+
 	for (i=0; i < state->maxTries; i++)	
 	{	
 		state->numMappingCompare++;
@@ -279,7 +282,7 @@ int8_t vmtreeDeleteMapping(vmtreeState *state, id_t prevPage)
 			return 0;
 		}
 
-		loc += 7;
+		loc += offset;
 		loc = loc % state->maxMappings;	
 	}
 
@@ -647,7 +650,7 @@ count_t vmtreeUpdatePointers(vmtreeState *state, void *buf, count_t start, count
 void vmtreeClearMappings(vmtreeState *state, int pageNum)
 {
 	pageNum = vmtreeGetMapping(state, pageNum);
-	// printf("Clear: %lu\n", pageNum);
+	printf("Clear: %lu\n", pageNum);
 	void* buf = readPage(state->buffer, pageNum);
 	if (buf == NULL)
 	{
@@ -675,7 +678,7 @@ void vmtreeClearMappings(vmtreeState *state, int pageNum)
 		
 		/* Update mappings for this node */
 		buf = readPage(state->buffer, pageNum);	
-		// printf("Clear mappings\n");
+		printf("Clear mappings\n");
 		// vmtreePrintNodeBuffer(state, pageNum, 1, buf);
 
 		count_t num = vmtreeUpdatePointers(state, buf, 0, VMTREE_GET_COUNT(buf));	
@@ -729,7 +732,8 @@ void vmtreeFixMappings(vmtreeState *state, id_t prevId, id_t currId, int16_t l)
 	
 	while (vmtreeAddMapping(state, prevId, currId) == -1 && l >= 0)
 	{	/* No more space for mappings. Write all nodes to root until have space for a mapping. */			
-		// printf("No more space for mappings. Num: %d Max: %d\n", state->numMappings, state->maxMappings);		
+		// printf("No more space for mappings. Page: %d Num: %d Max: %d\n", prevId, state->numMappings, state->maxMappings);		
+		state->numMappingWrite++;
 		buf = readPageBuffer(state->buffer, state->activePath[l], 0);	
 		if (buf == NULL)
 			return;
@@ -1586,10 +1590,16 @@ int8_t vmtreePutNorOverwriteBatch(vmtreeState *state)
 					return -1;					
 				state->activePath[l+1] = nextId;
 			}
-			
-			/* Read the leaf node */
-			// buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: May want to use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
-			buf = readPage(state->buffer, nextId);				
+						
+			/* Read the leaf node */						
+			/* Note: Use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+			/* Also results in improved buffer performance. */
+			buf = readPageBuffer(state->buffer, nextId, 0);				
+			if (buf == NULL)
+			{
+				printf("ERROR reading page: %lu\n", nextId);
+				return -1;
+			} 					
 			mustSearch = 0;
 		}
 		
@@ -1961,7 +1971,9 @@ int8_t vmtreePutRecord(vmtreeState *state, void* key, void *data)
 	}
 
 	/* Read the leaf node */
-	buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: Use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+	/* Note: Use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+	/* Also results in improved buffer performance. */
+	buf = readPageBuffer(state->buffer, nextId, 0);	
 	if (buf == NULL)
 	{
 		printf("ERROR reading page: %lu\n", nextId);
@@ -2397,14 +2409,18 @@ int8_t vmtreePutBatch(vmtreeState *state)
 				state->activePath[l+1] = nextId;
 			}
 			
-			/* Read the leaf node */
-			// buf = readPageBuffer(state->buffer, nextId, 0);	/* Note: May want to use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
-			buf = readPage(state->buffer, nextId);				
+			/* Read the leaf node */						
+			/* Note: Use readPageBuffer in buffer 0 to prevent any concurrency issues instead of readPage. */
+			/* Also results in improved buffer performance. */
+			buf = readPageBuffer(state->buffer, nextId, 0);				
+			if (buf == NULL)
+			{
+				printf("ERROR reading page: %lu\n", nextId);
+				return -1;
+			} 			
 			mustSearch = 0;
 		}
 		
-	
-
 		if (logidx == state->numLogRecords-1)
 			mustWrite = 1;
 		else if (state->levels == 1)
@@ -2770,8 +2786,7 @@ int8_t vmtreePutBatch(vmtreeState *state)
 		
 		// vmtreePrintNodeBuffer(state, state->activePath[0], 0, buf);
 		int8_t i;
-donerec:
-		// TODO: Figure out goto without useless statement
+donerec:		
 		i = 0;		
 	}
 	return 0;

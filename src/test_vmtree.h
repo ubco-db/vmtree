@@ -427,8 +427,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             */                      
             if (i % stepSize == 0)
             {           
-                printf("Num: %lu KEY: %lu\n", i, v);                            
-                l = i / stepSize -1;
+                printf("Num: %lu KEY: %lu   Extra writes: %d \tMapping table #: %d\n", i, v, state->numMappingWrite, state->numMappings);                            
+                l = i / stepSize -1;                
+
                 if (l < numSteps && l >= 0)
                 {
                     times[l][r] = millis()-start;
@@ -436,6 +437,12 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                     writes[l][r] = state->buffer->numWrites;
                     overwrites[l][r] = state->buffer->numOverWrites;
                     hits[l][r] = state->buffer->bufferHits;                     
+                }
+
+                if (l == 8)
+                {
+                    // printf("clearning mappings\n");
+                    // vmtreeClearMappings(state, state->activePath[0]);
                 }
             }        
         }
@@ -459,7 +466,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
 
         printf("Elapsed Time: %lu s\n", (end - start));
         printf("Records inserted: %lu\n", n);
-        printf("Mapping comparisons: %lu\n", state->numMappingCompare);
+        printf("Mapping comparisons: %lu  Extra writes: %d \n", state->numMappingCompare, state->numMappingWrite);
 
         /* Re-write tree to remove all mappings */
         // printf("Before clear mappings\n");
@@ -468,6 +475,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         // printf("After clear mappings\n");
 
         state->numMappingCompare = 0;
+        state->numMappingWrite = 0;
         dbbufferClearStats(state->buffer);
 
         srand(r); 
@@ -521,7 +529,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         printf("Elapsed Time: %lu s\n", (end - start));
         printf("Records queried: %lu\n", n);   
         printStats(state->buffer);     
-        printf("Mapping comparisons: %lu\n", state->numMappingCompare);
+        printf("Mapping comparisons: %lu  Extra writes: %d \n", state->numMappingCompare, state->numMappingWrite);
 
         /* Optional: Test iterator */
         // testIterator(state, recordBuffer);

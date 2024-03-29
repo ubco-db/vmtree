@@ -80,7 +80,10 @@ typedef uint16_t count_t;
 
 #define PREV_ID_CONSTANT		10000000
 
-#define EMPTY_MAPPING			200000000
+/**
+ * Used for double hashing on mapping table
+*/
+#define HASH_TABLE_PRIME 		7
 
 /* VMTREE implements virtual mappings and sequential writes to avoid update-in-place. */
 #define VMTREE					0
@@ -92,10 +95,25 @@ typedef uint16_t count_t;
 /* OVERWRITE has different page structure to avoid changing bytes already written. Records not in sorted order. */
 #define OVERWRITE				2
 
+#define MAPPING_SIZE			4
+
+#if MAPPING_SIZE == 8
+
+#define EMPTY_MAPPING			200000000
+
 typedef struct {
 	id_t prevPage;								/* Previous page index */
 	id_t currPage;								/* Current page index */
 } vmtreemapping;
+#else
+
+#define EMPTY_MAPPING			65535
+
+typedef struct {
+	uint16_t prevPage;							/* Previous page index */
+	uint16_t currPage;							/* Current page index */	
+} vmtreemapping;
+#endif
 
 typedef struct {			
 	uint8_t parameters;    						/* Parameter flags */
@@ -124,6 +142,7 @@ typedef struct {
 	id_t	numNodes;							/* Total number of nodes in tree */
 	id_t 	nodeSplitId;						/* Physical page id of node currently splitting during write. */
 	id_t	numMappingCompare;					/* Number of mapping comparisons */
+	id_t	numMappingWrite;					/* Number of writes trigger due to no space in mapping table */
 	int8_t	maxTries;							/* Max number of probes for mapping hash table */
 	id_t	savedMappingPrev;					/* Save a mapping during parent overflow fixing. Previous page id*/
 	id_t	savedMappingCurr;					/* Save a mapping during parent overflow fixing. Current page id*/

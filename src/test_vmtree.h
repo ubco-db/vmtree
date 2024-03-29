@@ -438,12 +438,6 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                     overwrites[l][r] = state->buffer->numOverWrites;
                     hits[l][r] = state->buffer->bufferHits;                     
                 }
-
-                if (l == 8)
-                {
-                    // printf("clearning mappings\n");
-                    // vmtreeClearMappings(state, state->activePath[0]);
-                }
             }        
         }
        

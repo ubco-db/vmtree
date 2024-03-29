@@ -650,7 +650,7 @@ count_t vmtreeUpdatePointers(vmtreeState *state, void *buf, count_t start, count
 void vmtreeClearMappings(vmtreeState *state, int pageNum)
 {
 	pageNum = vmtreeGetMapping(state, pageNum);
-	printf("Clear: %lu\n", pageNum);
+	// printf("Clear: %lu\n", pageNum);
 	void* buf = readPage(state->buffer, pageNum);
 	if (buf == NULL)
 	{
@@ -678,7 +678,7 @@ void vmtreeClearMappings(vmtreeState *state, int pageNum)
 		
 		/* Update mappings for this node */
 		buf = readPage(state->buffer, pageNum);	
-		printf("Clear mappings\n");
+		// printf("Clear mappings\n");
 		// vmtreePrintNodeBuffer(state, pageNum, 1, buf);
 
 		count_t num = vmtreeUpdatePointers(state, buf, 0, VMTREE_GET_COUNT(buf));	

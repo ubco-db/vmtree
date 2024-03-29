@@ -60,6 +60,13 @@ int8_t dfStorageInit(storageState *storage)
 	mem->storage.erasePages = dfStorageErasePages;
 	mem->storage.flush = dfStorageFlush;
 
+	/*
+	Pre-erase all pages
+	*/
+	for (id_t i = 0; i < mem->size; i++)
+	{
+		dfErase(i);
+	}
 	return 0;
 }
 

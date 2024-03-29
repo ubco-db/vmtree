@@ -43,13 +43,19 @@ extern "C" {
 #include <stdio.h>
 
 #include "storage.h"
+
+#if defined(ARDUINO)
+#include "file/serial_c_iface.h"
 #include "file/dataflash_c_iface.h"
+#endif
 
 typedef struct {
 	storageState 	storage;			/* Base struct defining read/write page functions */
 	void			*df;				/* Dataflash info */	
 	uint32_t		size;				/* Storage size in bytes */
 	uint32_t		pageOffset;			/* Offset of first page */
+	uint32_t		maxPageWrite;		/* The largest page number written. Used to track when need to erase before write. */
+	uint8_t			useOverwrite;		/* 0 if regular write, 1 if using overwrite without erase */
 } dfStorageState;
 
 

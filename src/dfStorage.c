@@ -59,12 +59,13 @@ int8_t dfStorageInit(storageState *storage)
 	mem->storage.writePage = dfStorageWritePage;
 	mem->storage.erasePages = dfStorageErasePages;
 	mem->storage.flush = dfStorageFlush;
+	mem->maxPageWrite = 0;
 
 	/*
 	Pre-erase all pages
 	*/
-	for (id_t i = 0; i < mem->size; i++)
-	{
+	for (id_t i = 0; i < mem->storage.size; i++)
+	{	// printf("Erase: %lu\n", i);
 		dfErase(i);
 	}
 	return 0;
@@ -115,10 +116,27 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 	if ( pageNum < 0 || (pageNum+1)*pageSize > mem->size)
 		return -1;		/* Invalid page requested */
 
-	// TODO: Use dfwrite if doing OVERWRITE or VMTREE. dfwriteErase for BTREE.
-	// printf("Write: %lu\n", pageNum+mem->pageOffset);
-	dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
-	// dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);
+	// NOTE: Use dfwrite if doing OVERWRITE or VMTREE. dfwriteErase for BTREE.
+	// Code now assumes pages are pre-erased so only new writeErase if writing to a page a second time.	
+	if (pageNum <= mem->maxPageWrite)
+	{		
+		if (mem->useOverwrite) 
+		{
+			dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
+		}
+		else
+		{ 	// printf("Erase and write: %lu\n", pageNum);
+			dfwriteErase(pageNum+mem->pageOffset, buffer, pageSize);		
+		}
+	}
+	else
+	{
+		// printf("Write: %lu\n", pageNum);
+		dfwrite(pageNum+mem->pageOffset, buffer, pageSize);
+		if (pageNum > mem->maxPageWrite)
+			mem->maxPageWrite = pageNum;
+	}
+		
 	return 0;   
 }
 
@@ -134,10 +152,15 @@ int8_t dfStorageWritePage(storageState *storage, id_t pageNum, count_t pageSize,
 */
 int8_t dfStorageErasePages(storageState *storage, id_t startPage, id_t endPage)
 {
+	dfStorageState *mem = (dfStorageState*) storage;
+
 	/* Erase pages. TODO: Can we erase as a block instead of individual pages? */
 	for (id_t i=startPage; i <= endPage; i++)
-	{		
-		dfErase(i);		
+	{	
+		// Code has pages pre-erased first time so only erase if writing to a page a second time.	
+		if (i <= mem->maxPageWrite)
+			dfErase(i);	
+	
 	}
 	return 0;
 }

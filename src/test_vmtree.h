@@ -264,7 +264,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         uint32_t n = it->size;          
 
         /* Configure file storage */      
-        
+        /*
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         printf("FS size: %d\n", sizeof(fileStorageState));
@@ -277,21 +277,22 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-        
+        */
         /* Configure dataflash memory storage */     
-        /*
+        
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
-        storage->size = 512 * 6700; // 6700 pages of 512 bytes each (configure based on memory) 
         storage->storage.size = 6700;
-        storage->pageOffset = 0;              
+        storage->size = 512 * storage->storage.size; // 6700 pages of 512 bytes each (configure based on memory)         
+        storage->pageOffset = 0;    
+        storage->useOverwrite = type == OVERWRITE ? 1 : 0;          
         if (dfStorageInit((storageState*) storage) != 0)
         {
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        */
+        
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        

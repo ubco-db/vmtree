@@ -22,23 +22,23 @@ The B+-tree implementation has the following benefits:
 To use VMTree in projects, the following files are required regardless of implementation variant:
 
 * `vmtree.h`, `vmtree.c` - implementation of B+-tree supporting fixed-size key-value records
-* storage.h - the storage interface
-* dbbuffer.h, dbbuffer.c - provides buffering of pages in memory
-* in_memory_sort.h, in_memory_sort.c - for sorting keys within nodes
-* bitarr.h, bitarr.c - bit array implementation
+* `storage.h` - the storage interface
+* `dbbuffer.h`, `dbbuffer.c` - provides buffering of pages in memory
+* `in_memory_sort.h`, `in_memory_sort.c` - for sorting keys within nodes
+* `bitarr.h`, `bitarr.c` - bit array implementation
   
 ## Support Code Files (optional - depends on your environment)
 
-* serial_c_iface.h, serial_c_iface.cpp - allows printf() on Arduino
-* sd_stdio_c_iface.h, sd_stdio_c_iface.h - allows use of stdio file API (e.g. fopen())
+* `serial_c_iface.h`, `serial_c_iface.cpp` - allows printf() on Arduino
+* `sd_stdio_c_iface.h`, `sd_stdio_c_iface.h` - allows use of stdio file API (e.g. fopen())
 
 ## Storage Type
 
-* **SD Card storage on files** (most common) - requires sd_card_c_iface.h, sd_card_c_iface.cpp, fileStorage.h, fileStorage.c, and SdFAT library
-* **Dataflash storage** - requires dataflash_c_iface.h, data_flash_c_iface.cpp, dfStorage.h, dfStorage.c, and Dataflash library
+* **SD Card storage on files** (most common) - requires `sd_card_c_iface.h`, `sd_card_c_iface.cpp`, `fileStorage.h`, `fileStorage.c`, and SdFAT library
+* **Dataflash storage** - requires `dataflash_c_iface.h`, `data_flash_c_iface.cpp`, `dfStorage.h`, `dfStorage.c`, and Dataflash library
 
-The main benchmark and testing file is **test_vmtree.h**. The main file is in **main.cpp**. It would need to be modified for your particular embedded platform.
-Our develpment on embedded devices is done using Platform.io. 
+The main benchmark and testing file is `**test_vmtree.h**`. The main file is in `**main.cpp**`. It would need to be modified for your particular embedded platform.
+Our development on embedded devices is done using Platform.io. 
 
 ## Usage
 

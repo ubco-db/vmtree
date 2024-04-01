@@ -17,6 +17,9 @@ The B+-tree implementation has the following benefits:
 5. Easy to use and include in existing projects. 
 6. Open source license. Free to use for commerical and open source projects.
 
+## License
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 # Getting Started
 
 To use VMTree in projects, the following files are required regardless of implementation variant:

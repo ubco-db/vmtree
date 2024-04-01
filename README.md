@@ -1,6 +1,6 @@
 # Efficient B-tree Implementation for Embedded Sensor Devices
 
-The VMTree is an efficient B+-tree implementation for embedded sensor devices. It uses a few KBs of memory and supports multiple storage types include SD cards, NOR, and NAND. VMTree extends the previous B-tree implementation, which only worked with file storage.
+The VMTree is an efficient B+-tree implementation for embedded sensor devices. It uses a few KBs of memory and supports multiple storage types include SD cards, NOR, and NAND. VMTree extends the previous B-tree implementation ([PC](https://github.com/ubco-db/btree), [Arduino/Embedded](https://github.com/ubco-db/btree_raw)), which only worked with file storage.
 
 There are three implementation variants optimized for different storage types:
 
@@ -37,7 +37,7 @@ To use VMTree in projects, the following files are required regardless of implem
 * **SD Card storage on files** (most common) - requires `sd_card_c_iface.h`, `sd_card_c_iface.cpp`, `fileStorage.h`, `fileStorage.c`, and SdFAT library
 * **Dataflash storage** - requires `dataflash_c_iface.h`, `data_flash_c_iface.cpp`, `dfStorage.h`, `dfStorage.c`, and Dataflash library
 
-The main benchmark and testing file is `**test_vmtree.h**`. The main file is in `**main.cpp**`. It would need to be modified for your particular embedded platform.
+The main benchmark and testing file is **`test_vmtree.h`**. The main file is in **`main.cpp`**. It would need to be modified for your particular embedded platform.
 Our development on embedded devices is done using Platform.io. 
 
 ## Usage

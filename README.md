@@ -34,7 +34,7 @@ To use VMTree in projects, the following files are required regardless of implem
 
 ## Storage Type
 
-* **SD Card storage on files** (most common) - requires `sd_card_c_iface.h`, `sd_card_c_iface.cpp`, `fileStorage.h`, `fileStorage.c`, and [SdFAT library](https://github.com/greiman/SdFat)
+* **SD Card storage with files** (most common) - requires `sd_card_c_iface.h`, `sd_card_c_iface.cpp`, `fileStorage.h`, `fileStorage.c`, and [SdFAT library](https://github.com/greiman/SdFat)
 * **Dataflash storage** - requires `dataflash_c_iface.h`, `data_flash_c_iface.cpp`, `dfStorage.h`, `dfStorage.c`, and [Dataflash library](https://github.com/ubco-db/Dataflash)
 
 The main benchmark and testing file is **`test_vmtree.h`**. The main file is in **`main.cpp`**. It would need to be modified for your particular embedded platform.

@@ -72,8 +72,8 @@ typedef struct {
 	void	*state;					/* Tree state */
 	int8_t (*isValid)(void *state, id_t pageNum, id_t *parentId, void **parentBuffer);	/* Function to determine if page is valid */	
 	int8_t 	(*movePage)(void *state, id_t prev, id_t curr, void* buf);					/* Function called when buffer moves a page location */
-	bitarr freePages;				/* Bit vector to determine free pages in memory */
-	void*	blockBuffer;			/* Buffer a block of pages when erasing */
+	bitarr 	freePages;				/* Bit vector to determine free pages in memory */
+	void*	blockBuffer;			/* Buffer a block of pages when erasing */	
 } dbbuffer;
 
 /**

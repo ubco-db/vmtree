@@ -66,10 +66,12 @@ void dbbufferInit(dbbuffer *state)
 	state->endDataPage--;
 	state->storage->size = state->endDataPage;
 
-	/* Set free space flags */
+	/* Set free space flags */		
 	state->freePages = malloc(sizeof(uint8_t)*(state->storage->size/8+1));
 	for (id_t l=0; l < state->storage->size; l++)		
 		dbbufferSetFree(state, l);	
+	printf("Allocated free space bitarray. Size in bytes: %d\n",sizeof(uint8_t)*(state->storage->size/8+1));
+
 
 	/* Erase first two blocks. */
 	erasePages(state, 0, state->eraseSizeInPages*2-1);		
@@ -92,8 +94,7 @@ void dbbufferRecover(dbbuffer *state)
 
 	printf("Recovering from storage.\n");	
 	
-	/* Scan file from end to determine the page with root */
-	// TODO: 
+	/* Scan file from end to determine the page with root */	
 	FILE* fp = NULL; // state->file;
       
 	fseek(fp, 0, SEEK_END); 
@@ -534,6 +535,8 @@ void closeBuffer(dbbuffer *state)
 {
 	printStats(state);	
 	state->storage->close(state->storage);	
+	if (state->freePages != NULL)
+		free(state->freePages);
 }
 
 

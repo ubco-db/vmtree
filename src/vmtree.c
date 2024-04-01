@@ -105,22 +105,27 @@ void vmtreeInit(vmtreeState *state)
 
 	state->levels = 1;
 	state->numMappings = 0;
+	state->maxMappings = 0;
 	state->numNodes = 1;
 	state->numMappingCompare = 0;
 	state->numMappingWrite = 0;
 	state->maxTries = 5;	
 	state->savedMappingPrev = EMPTY_MAPPING;
 
-	/* Calculate maximum number of mappings */
-	state->maxMappings = state->mappingBufferSize / MAPPING_SIZE;		
-	
+
+	if (state->mappingBuffer != NULL && state->mappingBufferSize > 0)
+	{
+		/* Calculate maximum number of mappings */
+		state->maxMappings = state->mappingBufferSize / MAPPING_SIZE;		
+			
+		/* Initialize mapping table */
+		vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;
+		for (int16_t i=0; i < state->maxMappings; i++)
+			mappings[i].prevPage = EMPTY_MAPPING;
+	}
+		
 	printf("Max mappings: %d  Number of hash probes: %d\n", state->maxMappings, state->maxTries);
 
-	/* Initialize mapping table */
-	vmtreemapping *mappings = (vmtreemapping*) state->mappingBuffer;
-	for (int16_t i=0; i < state->maxMappings; i++)
-		mappings[i].prevPage = EMPTY_MAPPING;
-	
 	/* Create and write empty root node */
 	void *buf = initBufferPage(state->buffer, 0);
 	VMTREE_SET_ROOT(buf);

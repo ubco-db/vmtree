@@ -264,12 +264,12 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         uint32_t n = it->size;          
 
         /* Configure file storage */      
-        /*
+        
         printf("Using SD card file storage\n");    
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         printf("FS size: %d\n", sizeof(fileStorageState));
-        storage->fileName = (char*) "afile";
-        storage->storage.size = 2000;
+        storage->fileName = (char*) "dfile";
+        storage->storage.size = 5000;
         storage->fileSize = storage->storage.size / NUM_FILES;
         printf("Num files: %d  File size: %d\n", NUM_FILES, storage->fileSize);
         if (fileStorageInit((storageState*) storage) != 0)
@@ -277,9 +277,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             printf("Error: Cannot initialize storage!\n");
             return;
         }                        
-        */
-        /* Configure dataflash memory storage */     
         
+        /* Configure dataflash memory storage */     
+        /*
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
         storage->df = storageInfo;
@@ -292,7 +292,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             printf("Error: Cannot initialize storage!\n");
             return;
         }        
-        
+        */
         /* Configure memory storage */
         /*
         memStorageState *storage = malloc(sizeof(memStorageState));        
@@ -310,6 +310,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         {   printf("Failed to allocate buffer struct.\n");
             return;
         }
+
         buffer->pageSize = 512;
         buffer->numPages = M;
         buffer->eraseSizeInPages = 8;
@@ -353,12 +354,19 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
             ds = state->keySize;
         state->tempData = malloc(ds);           	               
 
-        state->mappingBufferSize = 1024; // 1024;
-        state->mappingBuffer = malloc(state->mappingBufferSize);
-        printf("Mapping buffer size: %d\n", state->mappingBufferSize);
-        if (state->mappingBuffer == NULL)
-        {   printf("Failed to allocate mapping buffer size: %d\n", state->mappingBufferSize);
-            return;
+        state->parameters = type;  
+        state->mappingBuffer = NULL;
+        state->mappingBufferSize = 0;
+        
+        if (state->parameters == VMTREE)
+        {   
+            state->mappingBufferSize = 1024; // 1024;
+            state->mappingBuffer = malloc(state->mappingBufferSize);
+            printf("Mapping buffer size: %d\n", state->mappingBufferSize);
+            if (state->mappingBuffer == NULL)
+            {   printf("Failed to allocate mapping buffer size: %d\n", state->mappingBufferSize);
+                return;
+            }
         }
 
         /* Enable log buffer by allocating space or set to NULL for no log buffer */
@@ -371,11 +379,9 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         buffer->activePath = state->activePath;
         buffer->state = state;
         buffer->isValid = vmtreeIsValid;
-        buffer->movePage = vmtreeMovePage;        
-
-        state->parameters = type;  
+        buffer->movePage = vmtreeMovePage;                
         
-         if (state->parameters == 0)
+         if (state->parameters == VMTREE)
             printf("VMTREE with sequential writing.\n");
         else if (state->parameters == BTREE)
             printf("BTREE with update-in-place writes.\n");
@@ -535,6 +541,8 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         /* Clean up and free memory */
         closeBuffer(buffer);    
         
+        if (state->mappingBuffer != NULL)
+            free(state->mappingBuffer);
         free(state->tempKey);
         free(state->tempData);
         free(recordBuffer);

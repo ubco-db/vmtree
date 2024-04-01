@@ -21,7 +21,7 @@ The B+-tree implementation has the following benefits:
 
 To use VMTree in projects, the following files are required regardless of implementation variant:
 
-* vmtree.h, vmtree.c - implementation of B+-tree supporting fixed-size key-value records
+* `vmtree.h`, `vmtree.c` - implementation of B+-tree supporting fixed-size key-value records
 * storage.h - the storage interface
 * dbbuffer.h, dbbuffer.c - provides buffering of pages in memory
 * in_memory_sort.h, in_memory_sort.c - for sorting keys within nodes

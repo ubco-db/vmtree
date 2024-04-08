@@ -3,7 +3,8 @@
 @file		    main.cpp
 @author		  Ramon Lawrence, Scott Fazackerley
 @brief		  Main program for testing VMtree on custom hardware.
-@copyright	Copyright 2022
+            Note: This is hardware-specific and must be modified for other hardware.
+@copyright	Copyright 2024
 			      The University of British Columbia,
             Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -49,7 +50,6 @@ Includes for DataFlash memory
 /**
  * Includes for SD card 
 */
-/** @TODO optimize for clock speed */
 #include "sdios.h"
 static ArduinoOutStream cout(Serial);
 
@@ -57,14 +57,16 @@ static ArduinoOutStream cout(Serial);
 #include "sd_test.h"
 
 #include "test_vmtree.h"
+
+#ifdef DATAFLASH_MEMORY
 #include "file/dataflash_c_iface.h"
+#endif
 
 #define ENABLE_DEDICATED_SPI 1
-#define SPI_DRIVER_SELECT 1
+// #define SPI_DRIVER_SELECT 1
 // SD_FAT_TYPE = 0 for SdFat/File as defined in SdFatConfig.h,
 // 1 for FAT16/FAT32, 2 for exFAT, 3 for FAT16/FAT32 and exFAT.
 #define SD_FAT_TYPE 1
-/** @TODO Update max SPI speed for SD card */
 #define SD_CONFIG SdSpiConfig(CS_SD, DEDICATED_SPI, SD_SCK_MHZ(12), &spi_0)
 
 SdFat32 sd;
@@ -73,49 +75,6 @@ File32 file;
 // Headers
 bool test_sd_card();
 
-recordIteratorState* randomIterator(int32_t numRecords)
-{
-    randomIteratorState* iter = (randomIteratorState*) malloc(sizeof(randomIteratorState));
-    randomIteratorInit((recordIteratorState*) iter);
-
-    iter->state.size = numRecords;
-    return (recordIteratorState*) iter;
-}
-
-recordIteratorState* fileIterator(int32_t numRecords, char* fileName, uint8_t keyOffset, uint8_t recordSize)
-{                            
-    fileIteratorState* iter = (fileIteratorState*) malloc(sizeof(fileIteratorState));      
-    iter->filePath = fileName;  
-    iter->file = NULL;        
-    iter->pageSize = 512;
-    iter->recordSize = recordSize;
-    iter->headerSize = 16;        
-    iter->keyOffset = keyOffset;
-    iter->buffer = (char*) malloc(iter->pageSize);
-    fileIteratorInit((recordIteratorState*) iter);
-
-    iter->state.size = numRecords;
-    return (recordIteratorState*) iter;
-}
- 
-recordIteratorState* textIterator(int32_t numRecords, char* fileName, uint8_t headerRows, char* separator, uint8_t keyIdx, int8_t dataIdx)
-{                            
-    textIteratorState* iter = (textIteratorState*) malloc(sizeof(textIteratorState));      
-    iter->filePath = fileName;  
-    iter->file = NULL;            
-    iter->recordSize = 16;    
-    iter->headerRows = headerRows;
-    iter->separator = separator;
-    iter->keyField = keyIdx;
-    iter->dataField = dataIdx;
-
-    if (textIteratorInit((recordIteratorState*) iter) == -1)
-      return NULL;
-
-    iter->state.size = numRecords;
-
-    return (recordIteratorState*) iter;
-}
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -139,6 +98,7 @@ void setup() {
  
   init_sdcard((void*) &sd);
 
+  #ifdef DATAFLASH_MEMORY
   /* Setup for data flash memory (DB32 512 byte pages) */
   pinMode(CS_DB32,  OUTPUT);
   digitalWrite(CS_DB32, HIGH);
@@ -153,12 +113,14 @@ void setup() {
   cout << "bits per page: " << (unsigned int)at45db32_m.bits_per_page << "\n";
 
   init_df((void*) &at45db32_m);
+  #endif
 
   int16_t M = 3, logBufferPages = 0, numRuns = 3;
   int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
-  int8_t testType = 0;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
+  int8_t testType = 0;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text), 
+                          // 5 - SD card performance, 6 - Dataflash performance
 
-  recordIteratorState* it;
+  recordIteratorState* it = NULL;
 
   switch (testType)
   {
@@ -189,6 +151,14 @@ void setup() {
     case 4:
       it = textIterator(10000, (char*) "data/S7_respiban_500K.txt", 3, (char*) "\t", 2, -1);  
       runtest(&at45db32_m, M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      break;
+
+    case 5:
+      testRawPerformanceFileStorage();
+      break;
+
+    case 6:
+      testRawPerformanceDataFlashStorage();
       break;
   } 
 

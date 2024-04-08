@@ -12,6 +12,8 @@
 
 #include "SPI.h"
 
+/* Defined if DataFlash memory is resident on board. Specific to our custom embedded hardwdare. */
+#define DATAFLASH_MEMORY         1
 
 #define status_t               unsigned char
 #define pin_number_t           unsigned char

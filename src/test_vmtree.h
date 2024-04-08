@@ -3,7 +3,7 @@
 @file		test_vmtree.h
 @author		Ramon Lawrence
 @brief		This file does performance/correctness testing of VMTree.
-@copyright	Copyright 2022
+@copyright	Copyright 2024
 			The University of British Columbia,
             Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -37,14 +37,27 @@
 #include <string.h>
 
 #include "vmtree.h"
-#include "testIterators/randomIterator.h"
-#include "testIterators/fileIterator.h"
-#include "testIterators/textIterator.h"
 #include "fileStorage.h"
 #include "dfStorage.h"
 // #include "memStorage.h"
 
+#include "testIterators/testIterators.h"
 
+/**
+ * Get current time in milliseconds. Supports PC and embedded platforms.
+*/
+unsigned long getTime()
+{
+    #if defined(ARDUINO)
+        return millis();
+    #else
+        return clock();
+    #endif
+}
+
+/**
+ * Tests iterator scan.
+*/
 void testIterator(vmtreeState *state, void *recordBuffer)
 {
      /* Below minimum key search */
@@ -89,6 +102,10 @@ void testIterator(vmtreeState *state, void *recordBuffer)
         printf("FAILURE\n");           
 }
 
+/**
+ * Checks that all random key values inserted can be found in the tree.
+ * Returns number of errors found.
+*/
 int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int numvals, int r)
 {
      /* Verify that can find all values inserted */
@@ -119,14 +136,20 @@ int32_t checkValues(vmtreeState *state, void* recordBuffer, int32_t maxvals, int
     return errors;
 }
 
-void testRawPerformance()
-{   /* Tests storage raw read and write performance */
-    printf("Starting RAW performance test.\n");
+/* 
+Tests file storage raw read and write performance. 
+*/
+void testRawPerformanceFileStorage()
+{   
+    printf("Starting File Storage performance test.\n");
 
     char buffer[512];
     unsigned long startMillis;
-    /* SD Card */    
+    #if defined(ARDUINO)
     SD_FILE *fp = fopen("testdata.bin", "w+b");
+    #else
+    FILE *fp = fopen("testdata.bin", "w+b");
+    #endif
     if (fp == NULL)
     {
         printf("Error opening file.\n");
@@ -134,8 +157,9 @@ void testRawPerformance()
     }
    
     // Test time to write 1000 blocks
-    printf("SD card performance metrics:\n");
-    startMillis = millis();
+    printf("File storage (SD card) performance metrics:\n");
+
+    startMillis = getTime();
 
     for (int i=0; i < 1000; i++)
     {            
@@ -143,10 +167,10 @@ void testRawPerformance()
         {   printf("Write error.\n");             
         }
     }
-    printf("Write time: %lu\n", millis()-startMillis);
+    printf("Write time: %lu\n", getTime()-startMillis);
     fflush(fp);
 
-    startMillis = millis();
+    startMillis = getTime();
 
     for (int i=0; i < 1000; i++)
     {            
@@ -156,12 +180,12 @@ void testRawPerformance()
         {   printf("Write error.\n");             
         }
     }
-    printf("Random write time: %lu\n", millis()-startMillis);
+    printf("Random write time: %lu\n", getTime()-startMillis);
     fflush(fp);
 
     // Time to read 1000 blocks
     fseek(fp, 0, SEEK_SET);
-    startMillis = millis();
+    startMillis = getTime();
     for (int i=0; i < 1000; i++)
     {
         
@@ -169,11 +193,11 @@ void testRawPerformance()
         {   printf("Read error.\n");             
         }
     }
-    printf("Read time: %lu\n", millis()-startMillis);
+    printf("Read time: %lu\n", getTime()-startMillis);
 
     fseek(fp, 0, SEEK_SET);
     // Time to read 1000 blocks randomly    
-    startMillis = millis();
+    startMillis = getTime();
     srand(1);
     for (int i=0; i < 1000; i++)
     {
@@ -183,11 +207,21 @@ void testRawPerformance()
         {   printf("Read error.\n");             
         }
     }
-    printf("Random Read time: %lu\n", millis()-startMillis);
-   
+    printf("Random Read time: %lu\n", getTime()-startMillis);   
+}
+
+#ifdef DATAFLASH_MEMORY
+/**
+ * Tests performance of Dataflash memory. Must be available on the embedded device.
+*/
+void testRawPerformanceDataFlashStorage()
+{  
+    char buffer[512];
+    unsigned long startMillis;
+
 	/* Data flash storage */
     printf("Dataflash performance metrics:\n");
-    startMillis = millis();
+    startMillis = getTime();
 
     for (int i=0; i < 1000; i++)
     {
@@ -195,9 +229,9 @@ void testRawPerformance()
         {   printf("Write error.\n");             
         }
     }
-    printf("Write time: %lu\n", millis()-startMillis);    
+    printf("Write time: %lu\n", getTime()-startMillis);    
 
-    startMillis = millis();
+    startMillis = getTime();
 
     for (int i=0; i < 1000; i++)
     {            
@@ -206,20 +240,20 @@ void testRawPerformance()
         {   printf("Write error.\n");             
         }
     }
-    printf("Random write time: %lu\n", millis()-startMillis);    
+    printf("Random write time: %lu\n", getTime()-startMillis);    
 
     // Time to read 1000 blocks        
-    startMillis = millis();
+    startMillis = getTime();
     for (int i=0; i < 1000; i++)
     {        
         if (0 == dfread(i, buffer, 512))
         {   printf("Read error.\n");             
         }
     }
-    printf("Read time: %lu\n", millis()-startMillis);
+    printf("Read time: %lu\n", getTime()-startMillis);
     
     // Time to read 1000 blocks randomly    
-    startMillis = millis();
+    startMillis = getTime();
     srand(1);
     for (int i=0; i < 1000; i++)
     {
@@ -228,18 +262,15 @@ void testRawPerformance()
         {   printf("Read error.\n");             
         }
     }
-    printf("Random Read time: %lu\n", millis()-startMillis);	    
+    printf("Random Read time: %lu\n", getTime()-startMillis);	    
 }
-
+#endif
 
 /**
  * Runs test with given parameters.
  */ 
-void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
-{    
-    // testRawPerformance();
-    // return;
-
+void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
+{
     uint32_t stepSize, numSteps = 10;
     int32_t numRecords = it->size;
     count_t r, l;
@@ -282,7 +313,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         /*
         printf("Using data flash storage\n");   
         dfStorageState *storage = (dfStorageState*) malloc(sizeof(dfStorageState)); 
-        storage->df = storageInfo;
+        storage->df = (memory_t*) storageInfo;
         storage->storage.size = 6700;
         storage->size = 512 * storage->storage.size; // 6700 pages of 512 bytes each (configure based on memory)         
         storage->pageOffset = 0;    
@@ -403,7 +434,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         srand(r); 
         it->init(it);
 
-        unsigned long start = millis();   
+        unsigned long start = getTime();   
         
         for (i = 1; i <= n ; i++)
         {                             
@@ -439,7 +470,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
 
                 if (l < numSteps && l >= 0)
                 {
-                    times[l][r] = millis()-start;
+                    times[l][r] = getTime()-start;
                     reads[l][r] = state->buffer->numReads;
                     writes[l][r] = state->buffer->numWrites;
                     overwrites[l][r] = state->buffer->numOverWrites;
@@ -451,7 +482,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         /* Call flush to make sure log buffer or any other buffers have been wrote to storage */
         vmtreeFlush(state);
 
-        unsigned long end = millis();   
+        unsigned long end = getTime();   
 
         l = numSteps-1;
         times[l][r] = end-start;
@@ -483,7 +514,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         it->init(it);
 
         printf("\nVerifying and searching for all values.\n");
-        start = millis();
+        start = getTime();
 
         /* Verify that can find all values inserted */    
         for (i = 0; i < n; i++) 
@@ -509,7 +540,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
                 l = i / stepSize - 1;
                 if (l < numSteps && l >= 0)
                 {
-                    rtimes[l][r] = millis()-start;
+                    rtimes[l][r] = getTime()-start;
                     rreads[l][r] = state->buffer->numReads;                    
                     rhits[l][r] = state->buffer->bufferHits;                     
                 }
@@ -517,7 +548,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         }
         
         l = numSteps-1;       
-        rtimes[l][r] = millis()-start;
+        rtimes[l][r] = getTime()-start;
         rreads[l][r] = state->buffer->numReads;                    
         rhits[l][r] = state->buffer->bufferHits;                     
     
@@ -526,7 +557,7 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         else
             printf("SUCCESS. All values found!\n");
         
-        end = millis();
+        end = getTime();
         printf("Elapsed Time: %lu s\n", (end - start));
         printf("Records queried: %lu\n", n);   
         printStats(state->buffer);     
@@ -641,5 +672,13 @@ void runtest(memory_t* storageInfo, int16_t M, int16_t logBufferPages, int8_t nu
         }
         printf("\t%lu\n", sum/r);
     }
+}
+
+/**
+ * Runs test with given parameters (PC version).
+ */ 
+void runtestpc(int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
+{
+    runtest(NULL, M, logBufferPages, numRuns, recordSize, keySize, dataSize, type, it, compareKey);        
 }
 

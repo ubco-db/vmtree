@@ -49,7 +49,11 @@
 typedef struct fileIteratorState 
 {	
 	recordIteratorState 	state;			/* Basic iterator state */
+	#if defined(ARDUINO)
 	SD_FILE*				file;			/* Input file */	
+	#else
+	FILE*					file;			/* Input file */	
+	#endif
 	char*					buffer;			/* Buffer for one page of data file */	
 	char*					filePath;		/* File name with path for input file */
 	uint16_t				pageSize;		/* Page size of input file */	

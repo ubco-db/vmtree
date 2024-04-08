@@ -58,7 +58,11 @@ typedef struct {
 	SD_FILE 		*file;				/* File storing data */	
 	#else
 	#define 		NUM_FILES	10
-	SD_FILE*		files[NUM_FILES];	/* Use multiple files for performance rather than one. */
+		#if defined(ARDUINO)
+		SD_FILE*	files[NUM_FILES];	/* Use multiple files for performance rather than one. */
+		#else
+		FILE*		files[10];			/* Use multiple files for performance rather than one. */
+		#endif
 	#endif
 	char			*fileName;			/* File name for storage */
 	uint32_t		fileSize;			/* Maximum size in records for each file */

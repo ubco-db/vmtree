@@ -17,7 +17,7 @@ The B+-tree implementation has the following benefits:
 5. Easy to use and include in existing projects. 
 6. Open source license. Free to use for commerical and open source projects.
 
-**Note: This version is designed for building and execution on an embedded device using Platform.io.** A [desktop version](https://github.com/ubco-db/vmtree_pc) is also available.
+**Note: VMTree is designed for building and execution on an embedded device using Platform.io.** To run on a PC, run the `make` command that will compile the file `main_pc.c`. Execute the binary produced (i.e. `test_vmtree.exe` on Windows). Running on a desktop allows for validating the algorithm and collecting statistics on I/Os performed, but execution timings will not reflect performance on an embedded device.
 
 ## License
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)

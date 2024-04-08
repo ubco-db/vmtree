@@ -49,7 +49,11 @@
 typedef struct textIteratorState 
 {	
 	recordIteratorState 	state;			/* Basic iterator state */
+	#if defined(ARDUINO)
 	SD_FILE*				file;			/* Input file */		
+	#else
+	FILE*					file;			/* Input file */		
+	#endif
 	char*					filePath;		/* File name with path for input file */
 	uint16_t				pageSize;		/* Page size of input file */	
 	uint16_t				curRec;			/* Current record index */	
@@ -84,8 +88,12 @@ int8_t textIteratorNext(recordIteratorState *iter, void *key, void *data, uint32
 
 	while (1)
 	{
-		/* Read row of input */		
+		/* Read row of input */	
+		#if defined(ARDUINO)
 		if (!sd_fgets(str, 100, it->file))
+		#else
+		if (!fgets(str, 100, it->file))
+		#endif
 		{
 			printf("Unable to read row in input file.\n");
 			iter->size = iter->nextRecordId; 	/* Exhausted all rows in file */
@@ -169,7 +177,11 @@ int8_t textIteratorInit(recordIteratorState *iter)
 	/* Read and skip by any header rows */
 	for (uint8_t i=0; i < it->headerRows; i++)
 	{
+		#if defined(ARDUINO)
 		if (!sd_fgets(str, 200, it->file))
+		#else
+		if (!fgets(str, 200, it->file))
+		#endif
 		{
 			printf("Unable to read header row in input file.\n");
 			return -1;

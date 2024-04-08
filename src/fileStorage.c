@@ -3,7 +3,7 @@
 @file		fileStorage.c
 @author		Ramon Lawrence
 @brief		File storage implementation for reading and writing pages of data.
-@copyright	Copyright 2022
+@copyright	Copyright 2024
 			The University of British Columbia,
 			Ramon Lawrence		
 @par Redistribution and use in source and binary forms, with or without
@@ -86,7 +86,11 @@ int8_t fileStorageInit(storageState *storage)
                 Physical page id (number)
 @return		 Returns file handle. May change pageNum to be proper offset in file.
 */
+#if defined(ARDUINO)
 SD_FILE*  getFile(fileStorageState *fs, id_t* pageNum)
+#else
+FILE*  getFile(fileStorageState *fs, id_t* pageNum)
+#endif
 {	
 	#ifndef MULTIFILE
 	// Single-file implementation
@@ -118,7 +122,11 @@ int8_t fileStorageReadPage(storageState *storage, id_t pageNum, count_t pageSize
 {	
 	fileStorageState *fs = (fileStorageState*) storage;
 
+	#if defined(ARDUINO)
 	SD_FILE* fp = getFile(fs, &pageNum);	
+	#else
+	FILE* fp = getFile(fs, &pageNum);	
+	#endif
 
     /* Seek to page location in file */
     if (fseek(fp, pageNum*pageSize, SEEK_SET) == -1)
@@ -148,7 +156,11 @@ int8_t fileStorageWritePage(storageState *storage, id_t pageNum, count_t pageSiz
 {    
 	fileStorageState *fs = (fileStorageState*) storage;
 
-	SD_FILE* fp = getFile(fs, &pageNum);
+	#if defined(ARDUINO)
+	SD_FILE* fp = getFile(fs, &pageNum);	
+	#else
+	FILE* fp = getFile(fs, &pageNum);	
+	#endif
 
 	/* Seek to page location in file */
     if (fseek(fp, pageNum*pageSize, SEEK_SET) == -1)

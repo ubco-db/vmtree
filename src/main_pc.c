@@ -42,9 +42,10 @@
 void main()
 {
   int16_t M = 3, logBufferPages = 0, numRuns = 3;
-  int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
-  int8_t testType = 0;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
-                          // 5 - storage performance test
+  int8_t type = VMTREE;         // VMTREE, BTREE, OVERWRITE
+  int8_t testType = 0;          // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
+                                // 5 - storage performance test
+  uint32_t storageSize = 20000; // Storage size in pages
 
   recordIteratorState* it  = NULL;
 
@@ -52,27 +53,27 @@ void main()
   {
     case 0:
       it = randomIterator(100000);
-      runtestpc(M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare);
+      runtestpc(M, logBufferPages, numRuns, 16, 4, 12, type, it, uint32Compare, storageSize);
       break;
 
     case 1: 
       it = fileIterator(100000, (char*) "data/sea100K.bin", 4, 16);   // Offset 4: temp, 8: pressure, 12: wind
-      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx, storageSize);
       break;
 
     case 2: 
       it = fileIterator(100000, (char*) "data/uwa500K.bin", 4, 16); // Offset 4: temp, 8: pressure, 12: wind
-      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx, storageSize);
       break;
 
     case 3:
       it = fileIterator(100000, (char*) "data/S7hl500K.bin", 0, 32);  
-      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx, storageSize);
       break;
 
     case 4:
       it = textIterator(100000, (char*) "data/S7_respiban_500K.txt", 3, (char*) "\t", 2, -1);  
-      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx);
+      runtestpc(M, logBufferPages, numRuns, 8, 8, 0, type, it, compareIdx, storageSize);
       break;
 
     case 5:

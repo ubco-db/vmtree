@@ -269,7 +269,7 @@ void testRawPerformanceDataFlashStorage()
 /**
  * Runs test with given parameters.
  */ 
-void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
+void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b), uint32_t storageSize)
 {
     uint32_t stepSize, numSteps = 10;
     int32_t numRecords = it->size;
@@ -300,7 +300,7 @@ void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRun
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         printf("FS size: %d\n", sizeof(fileStorageState));
         storage->fileName = (char*) "dfile";
-        storage->storage.size = 10000;
+        storage->storage.size = storageSize;
         storage->fileSize = storage->storage.size / NUM_FILES;
         printf("Num files: %d  File size: %d\n", NUM_FILES, storage->fileSize);
         if (fileStorageInit((storageState*) storage) != 0)
@@ -677,8 +677,8 @@ void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRun
 /**
  * Runs test with given parameters (PC version).
  */ 
-void runtestpc(int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b))
+void runtestpc(int16_t M, int16_t logBufferPages, int8_t numRuns, uint8_t recordSize, uint8_t keySize, uint8_t dataSize, uint8_t type, recordIteratorState *it,  int8_t (*compareKey)(void *a, void *b), uint32_t storageSize)
 {
-    runtest(NULL, M, logBufferPages, numRuns, recordSize, keySize, dataSize, type, it, compareKey);        
+    runtest(NULL, M, logBufferPages, numRuns, recordSize, keySize, dataSize, type, it, compareKey, storageSize);        
 }
 

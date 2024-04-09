@@ -36,9 +36,9 @@
 #ifndef TESTITERATORS_H
 #define TESTITERATORS_H
 
-#include "testIterators/randomIterator.h"
-#include "testIterators/fileIterator.h"
-#include "testIterators/textIterator.h"
+#include "randomIterator.h"
+#include "fileIterator.h"
+#include "textIterator.h"
 
 /**
  * Random iterator with given record numbers of records.

@@ -300,7 +300,7 @@ void runtest(void* storageInfo, int16_t M, int16_t logBufferPages, int8_t numRun
         fileStorageState *storage = (fileStorageState*) malloc(sizeof(fileStorageState));
         printf("FS size: %d\n", sizeof(fileStorageState));
         storage->fileName = (char*) "dfile";
-        storage->storage.size = 5000;
+        storage->storage.size = 10000;
         storage->fileSize = storage->storage.size / NUM_FILES;
         printf("Num files: %d  File size: %d\n", NUM_FILES, storage->fileSize);
         if (fileStorageInit((storageState*) storage) != 0)

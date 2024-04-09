@@ -41,7 +41,7 @@
  */ 
 void main()
 {
-  int16_t M = 3, logBufferPages = 1, numRuns = 3;
+  int16_t M = 3, logBufferPages = 0, numRuns = 3;
   int8_t type = VMTREE;   // VMTREE, BTREE, OVERWRITE
   int8_t testType = 0;    // 0 - random, 1 - SeaTac, 2 - UWA, 3 - health, 4 - health (text)
                           // 5 - storage performance test

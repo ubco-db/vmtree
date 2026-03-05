@@ -172,6 +172,5 @@ while (vmtreeNext(state, &it, (void**) &itKey, (void**) &itData))
 }
 ```
 
-
 #### Ramon Lawrence<br>University of British Columbia Okanagan
 
